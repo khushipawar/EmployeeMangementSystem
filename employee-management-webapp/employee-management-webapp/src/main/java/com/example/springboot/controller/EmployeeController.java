@@ -29,7 +29,7 @@ public class EmployeeController {
         employees.add(new Employee(2L,"Akriti Singh","akritisingh1109@gmail.com","Software Developer"));
 
     }
-    @CrossOrigin("http://http://localhost:3002")
+    @CrossOrigin("http://localhost:3002")
     @GetMapping("/")
     public ResponseEntity<List<Employee>> getAllEmployees()
     {
@@ -47,7 +47,7 @@ public class EmployeeController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
-    @CrossOrigin("http://http://10.97.112.9:3002")
+    @CrossOrigin("http://localhost:3002")
     @PostMapping("/")
     public ResponseEntity<Employee> createEmployee(@RequestBody Employee employee)
     {
@@ -55,7 +55,7 @@ public class EmployeeController {
         employees.add(employee);
         return new ResponseEntity<>(employee,HttpStatus.CREATED);
     }
-    @CrossOrigin("http://http://10.97.112.9:3002")
+    @CrossOrigin("http://localhost:3002")
     @PutMapping("/{id}")
     public ResponseEntity<Employee> updateEmployee(@PathVariable Long id,@RequestBody Employee updatedEmployee)
     {
@@ -71,7 +71,7 @@ public class EmployeeController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
-    @CrossOrigin("http://http://10.97.112.9:3002")
+    @CrossOrigin("http://localhost:3002")
 @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id)
 {
