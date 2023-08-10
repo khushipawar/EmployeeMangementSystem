@@ -4,7 +4,7 @@ import {
 } from "antd";
 
 const EditableContext = React.createContext<any>(null);
-
+const fileNameMatchers = mapdataSource?.fileNameMatchers || [];
 interface EditableCellProps {
   editing: boolean;
   dataIndex: string;
@@ -13,6 +13,7 @@ interface EditableCellProps {
   record: EditableTableRowType;
   index: number;
   children: React.ReactNode;
+  dataSource: fileNameMatchers;
 }
 
 interface EditableTableRowType {
@@ -24,7 +25,6 @@ interface EditableTableRowType {
 
 class EditableCell extends React.Component<EditableCellProps> {
   renderCell = ({ getFieldDecorator }: any) => {
-//    const [data, setData] = useState([...(mapdataSource?.fileNameMatchers || [])]);
     const {
       editing, dataIndex, title, inputType, record, index, children, ...restProps
     } = this.props;
@@ -192,7 +192,7 @@ class EditableTable extends React.Component<EditableTableProps> {
         <Table
           components={components}
           bordered
-          dataSource={data}
+          dataSource={fileNameMatchers}
           columns={columns}
           rowClassName="editable-row"
           pagination={false}
@@ -201,20 +201,5 @@ class EditableTable extends React.Component<EditableTableProps> {
     );
   }
 }
-const dummyData: EditableTableRowType[] = [
-  {
-    key: "1",
-    column: "Row 1",
-    matchers: "Matchers 1",
-    notes: "Notes 1",
-  },
-  {
-    key: "2",
-    column: "Row 2",
-    matchers: "Matchers 2",
-    notes: "Notes 2",
-  },
-  // Add more dummy data rows as needed
-];
 
 export default Form.create<EditableTableProps>({ name: "editable_table" })(EditableTable);
