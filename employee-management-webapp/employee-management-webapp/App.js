@@ -23,7 +23,36 @@ interface EditableTableRowType {
 }
 
 class EditableCell extends React.Component<EditableCellProps> {
-  // ... rest of the EditableCell component
+  renderCell = ({ getFieldDecorator }: any) => {
+//    const [data, setData] = useState([...(mapdataSource?.fileNameMatchers || [])]);
+    const {
+      editing, dataIndex, title, inputType, record, index, children, ...restProps
+    } = this.props;
+
+    return (
+      <td {...restProps}>
+        {editing ? (
+          <Form.Item style={{ margin: 0 }}>
+            {getFieldDecorator(dataIndex, {
+              rules: [
+                {
+                  required: true,
+                  message: `Please Input ${title}!`,
+                },
+              ],
+              initialValue: record[dataIndex],
+            })(<Input />)}
+          </Form.Item>
+        ) : (
+          children
+        )}
+      </td>
+    );
+  };
+
+  render() {
+    return <EditableContext.Consumer>{this.renderCell}</EditableContext.Consumer>;
+  }
 }
 
 interface EditableTableProps {
@@ -32,17 +61,82 @@ interface EditableTableProps {
 }
 
 class EditableTable extends React.Component<EditableTableProps> {
-  state = {
-    editingKey: "",
-  };
+  private columns = [
+    {
+      title: "Row",
+      dataIndex: "column",
+      width: "30%",
+      editable: true,
+    },
+    {
+      title: "Matcher",
+      dataIndex: "matchers",
+      width: "30%",
+      editable: true,
+    },
+    {
+      title: "Notes",
+      dataIndex: "notes",
+      width: "30%",
+      editable: true,
+    },
+    {
+      title: "Actions",
+      dataIndex: "actions",
+      render: (_: any, record: EditableTableRowType) => {
+        const editable = this.isEditing(record);
+        return (
+          <Space>
+            {editable ? (
+              <span>
+                <EditableContext.Consumer>
+                  {form => (
+                    <Button
+                      onClick={() => this.save(form, record.key)}
+                      type="link"
+                    >
+                      Save
+                    </Button>
+                  )}
+                </EditableContext.Consumer>
+                <Popconfirm
+                  title="Sure to cancel?"
+                  onConfirm={() => this.cancel(record.key)}
+                >
+                  <Button type="link">Cancel</Button>
+                </Popconfirm>
+              </span>
+            ) : (
+              <Button
+                type="link"
+                onClick={() => this.edit(record.key)}
+              >
+                Edit
+              </Button>
+            )}
+            <Popconfirm
+              title="Sure to delete?"
+              onConfirm={() => this.handleDelete(record.key)}
+            >
+              <Button type="link" danger>
+                Delete
+              </Button>
+            </Popconfirm>
+          </Space>
+        );
+      },
+    },
+  ];
+
+  state = { editingKey: "" };
 
   isEditing = (record: EditableTableRowType) => record.key === this.state.editingKey;
 
-  edit = (key: string) => {
+  edit(key: string) {
     this.setState({ editingKey: key });
-  };
+  }
 
-  save = (form: any, key: string) => {
+  save(form: any, key: string) {
     form.validateFields((error: any, row: EditableTableRowType) => {
       if (error) {
         return;
@@ -59,7 +153,7 @@ class EditableTable extends React.Component<EditableTableProps> {
         this.setState({ editingKey: "" });
       }
     });
-  };
+  }
 
   cancel = () => {
     this.setState({ editingKey: "" });
@@ -77,69 +171,28 @@ class EditableTable extends React.Component<EditableTableProps> {
       },
     };
 
-    const columns = [
-      {
-        title: "Row",
-        dataIndex: "column",
-        width: "30%",
-        editable: true,
-      },
-      {
-        title: "Matcher",
-        dataIndex: "matchers",
-        width: "30%",
-        editable: true,
-      },
-      {
-        title: "Notes",
-        dataIndex: "notes",
-        width: "30%",
-        editable: true,
-      },
-      {
-        title: "Actions",
-        dataIndex: "actions",
-        render: (_: any, record: EditableTableRowType) => {
-          const editable = this.isEditing(record);
-          return (
-            <Space>
-              {editable ? (
-                <span>
-                  <EditableContext.Consumer>
-                    {form => (
-                      <Button onClick={() => this.save(form, record.key)} type="link">
-                        Save
-                      </Button>
-                    )}
-                  </EditableContext.Consumer>
-                  <Popconfirm title="Sure to cancel?" onConfirm={this.cancel}>
-                    <Button type="link">Cancel</Button>
-                  </Popconfirm>
-                </span>
-              ) : (
-                <Button type="link" onClick={() => this.edit(record.key)}>
-                  Edit
-                </Button>
-              )}
-              <Popconfirm title="Sure to delete?" onConfirm={() => this.handleDelete(record.key)}>
-                <Button type="link" danger>
-                  Delete
-                </Button>
-              </Popconfirm>
-            </Space>
-          );
-        },
-      },
-    ];
-
-    const { dataSource } = this.props;
+    const columns = this.columns.map(col => {
+      if (!col.editable) {
+        return col;
+      }
+      return {
+        ...col,
+        onCell: (record: EditableTableRowType) => ({
+          record,
+          inputType: "text",
+          dataIndex: col.dataIndex,
+          title: col.title,
+          editing: this.isEditing(record),
+        }),
+      };
+    });
 
     return (
       <EditableContext.Provider value={this.props.form}>
         <Table
           components={components}
           bordered
-          dataSource={dataSource}
+          dataSource={data}
           columns={columns}
           rowClassName="editable-row"
           pagination={false}
@@ -148,7 +201,6 @@ class EditableTable extends React.Component<EditableTableProps> {
     );
   }
 }
-
 const dummyData: EditableTableRowType[] = [
   {
     key: "1",
@@ -166,4 +218,3 @@ const dummyData: EditableTableRowType[] = [
 ];
 
 export default Form.create<EditableTableProps>({ name: "editable_table" })(EditableTable);
-
