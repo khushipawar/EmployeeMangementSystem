@@ -41,9 +41,11 @@ const StyledTable = styled(TypedTable)`
   }
 `;
 
-const ViewMatcherDetailsTable = ({mapdataSource}) =>
+const ViewMatcherDetailsTable = ({mode,onModeChange,mapdataSource}) =>
 {
- const [mode, setMode] = useState("view");
+ const handleModeChange = (newSelect) =>{
+ onModeChange(newSelect);
+ }
  const [data, setData] = useState([...(mapdataSource?.fileNameMatchers || [])]);
 
 
@@ -73,9 +75,10 @@ const ViewMatcherDetailsTable = ({mapdataSource}) =>
  title: 'Notes',
  dataIndex: 'notes',
  key: 'notes',
+
  },
         {
-             title: 'Actions',
+             title: '',
              key: 'actions',
              render: (text, record, index) => (
                  mode === 'edit' ? (
@@ -94,6 +97,8 @@ const ViewMatcherDetailsTable = ({mapdataSource}) =>
         setData(updatedData);
     };
 
+
+
     const handleDelete = (index) => {
         const updatedData = data.filter((_, i) => i !== index);
         setData(updatedData);
@@ -106,33 +111,33 @@ const ViewMatcherDetailsTable = ({mapdataSource}) =>
  return (
         <div>
 
-                   <Select
-                    defaultValue="view"
-                    onChange={handleModeChange}
-                    style={{ width: 120 }}>
+{/*                    <Select */}
+{/*                     defaultValue="view" */}
+{/*                     onChange={handleModeChange} */}
+{/*                     style={{ width: 120 }}> */}
 
-                    <Option value="view">
-                    <Icon type="eye" style={{marginRight: "5px"}}/>
-                    View
-                    </Option>
-                    <Option value="edit">
-                    <Icon type="edit" style={{marginRight: "5px"}}/>
-                     Edit
-                     </Option>
-                     </Select>
-                    {mode === 'edit' && (
-                          <div>
-                              <Button>Cancel</Button>
-                              <Button type="primary">Add</Button>
-                              <Button>Upload</Button>
-                              <Button>Save</Button>
-                          </div>
-                    )}
+{/*                     <Option value="view"> */}
+{/*                     <Icon type="eye" style={{marginRight: "5px"}}/> */}
+{/*                     View */}
+{/*                     </Option> */}
+{/*                     <Option value="edit"> */}
+{/*                     <Icon type="edit" style={{marginRight: "5px"}}/> */}
+{/*                      Edit */}
+{/*                      </Option> */}
+{/*                      </Select> */}
+{/*                     {mode === 'edit' && ( */}
+{/*                           <div> */}
+{/*                               <Button>Cancel</Button> */}
+{/*                               <Button type="primary">Add</Button> */}
+{/*                               <Button>Upload</Button> */}
+{/*                               <Button>Save</Button> */}
+{/*                           </div> */}
+{/*                     )} */}
 
                     <StyledTable
                         dataSource={data}
                         columns={columns}
-                        pagination={false}
+                        pagination={true}
                     />
                 </div>
 
