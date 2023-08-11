@@ -1,204 +1,142 @@
-import React, { Component } from "react";
+import React, { useState } from "react";
 import {
-  Table, Input, Button, Popconfirm, Form, Space
+    Table, Icon, Popconfirm, Menu, Dropdown, Button, Modal, Input, notification, Select
 } from "antd";
+import {DndProvider} from "react-dnd";
+import {HTML5Backend} from "react-dnd-html5-backend";
+import {EditableColumnProps} from "antd-editable-component/cell";
+import styled from "styled-components";
+import {connect} from "react-redux";
+import {isEqual} from "lodash";
+import {DraggableBodyRow, EditableCell,} from "./DraggableTable";
+import {DelimitedFileColumn, FixedLengthFileSegment} from "../../../types";
+import MapColumn from "../../../types/map/children/MapColumn";
+import FileType from "../../../types/enums/FileType";
+import TargetDetails from "../../../types/map/children/TargetDetails";
+import FileColumnProperty from "../../../types/map/children/FileColumnProperty";
+import {Link} from "react-router-dom";
+import {sign} from "crypto";
+import { DeleteOutlined } from "@ant-design/icons";
+import ViewButtons from "../../view/components/ViewButtons";
+const { confirm } = Modal;
 
-const EditableContext = React.createContext<any>(null);
-
-interface EditableCellProps {
-  editing: boolean;
-  dataIndex: string;
-  title: string;
-  inputType: string;
-  record: EditableTableRowType;
-  index: number;
-  children: React.ReactNode;
+class TypedTable extends Table<MapDetailsRow> {
 }
 
-interface EditableTableRowType {
-  key: string;
-  column: string;
-  matchers: string;
-  notes: string;
-}
-
-class EditableCell extends React.Component<EditableCellProps> {
-  renderCell = ({ getFieldDecorator }: any) => {
-    const {
-      editing, dataIndex, title, inputType, record, index, children, ...restProps
-    } = this.props;
-
-    return (
-      <td {...restProps}>
-        {editing ? (
-          <Form.Item style={{ margin: 0 }}>
-            {getFieldDecorator(dataIndex, {
-              rules: [
-                {
-                  required: true,
-                  message: `Please Input ${title}!`,
-                },
-              ],
-              initialValue: record[dataIndex],
-            })(<Input />)}
-          </Form.Item>
-        ) : (
-          children
-        )}
-      </td>
-    );
-  };
-
-  render() {
-    return <EditableContext.Consumer>{this.renderCell}</EditableContext.Consumer>;
+const StyledTable = styled(TypedTable)`
+   .ant-table-tbody{
+    background-color: white;
   }
-}
-
-interface EditableTableProps {
-  dataSource: EditableTableRowType[];
-  updateTable: (updatedData: EditableTableRowType[]) => void;
-}
-
-class EditableTable extends React.Component<EditableTableProps> {
-  private columns = [
-    {
-      title: "Row",
-      dataIndex: "column",
-      width: "30%",
-      editable: true,
-    },
-    {
-      title: "Matcher",
-      dataIndex: "matchers",
-      width: "30%",
-      editable: true,
-    },
-    {
-      title: "Notes",
-      dataIndex: "notes",
-      width: "30%",
-      editable: true,
-    },
-    {
-      title: "Actions",
-      dataIndex: "actions",
-      render: (_: any, record: EditableTableRowType) => {
-        const editable = this.isEditing(record);
-        return (
-          <Space>
-            {editable ? (
-              <span>
-                <EditableContext.Consumer>
-                  {form => (
-                    <Button
-                      onClick={() => this.save(form, record.key)}
-                      type="link"
-                    >
-                      Save
-                    </Button>
-                  )}
-                </EditableContext.Consumer>
-                <Popconfirm
-                  title="Sure to cancel?"
-                  onConfirm={() => this.cancel(record.key)}
-                >
-                  <Button type="link">Cancel</Button>
-                </Popconfirm>
-              </span>
-            ) : (
-              <Button
-                type="link"
-                onClick={() => this.edit(record.key)}
-              >
-                Edit
-              </Button>
-            )}
-            <Popconfirm
-              title="Sure to delete?"
-              onConfirm={() => this.handleDelete(record.key)}
-            >
-              <Button type="link" danger>
-                Delete
-              </Button>
-            </Popconfirm>
-          </Space>
-        );
-      },
-    },
-  ];
-
-  state = { editingKey: "" };
-
-  isEditing = (record: EditableTableRowType) => record.key === this.state.editingKey;
-
-  edit(key: string) {
-    this.setState({ editingKey: key });
+  .ant-table-thead{
+    position:sticky;
+    top:0;
+    z-index:9;
+  }
+  tr.drop-over-downward td {
+    border-bottom: 2px dashed #1890ff;
   }
 
-  save(form: any, key: string) {
-    form.validateFields((error: any, row: EditableTableRowType) => {
-      if (error) {
-        return;
-      }
-      const newData = [...this.props.dataSource];
-      const index = newData.findIndex(item => key === item.key);
-      if (index > -1) {
-        const item = newData[index];
-        newData.splice(index, 1, {
-          ...item,
-          ...row,
-        });
-        this.props.updateTable(newData);
-        this.setState({ editingKey: "" });
-      }
-    });
+  tr.drop-over-upward td {
+    border-top: 2px dashed #1890ff;
   }
+`;
 
-  cancel = () => {
-    this.setState({ editingKey: "" });
-  };
+const ViewMatcherDetailsTable = ({mapdataSource}) =>
+{
+ const [mode, setMode] = useState("view");
+ const [data, setData] = useState([...(mapdataSource?.fileNameMatchers || [])]);
 
-  handleDelete = (key: string) => {
-    const dataSource = [...this.props.dataSource];
-    this.props.updateTable(dataSource.filter(item => item.key !== key));
-  };
 
-  render() {
-    const components = {
-      body: {
-        cell: EditableCell,
-      },
+ const columns = [
+{
+  title: 'Row',
+  dataIndex: 'rowNumber',
+  key: 'rowNumber',
+  render: (text, record, index) => index + 1,
+},
+ {
+ title: 'Matchers',
+ dataIndex: 'matcher',
+ key: 'matcher',
+   render: (text, record, index) => (
+                mode === 'edit' ? (
+                    <Input
+                        value={record.matcher}
+                        onChange={e => handleMatcherChange(e.target.value, index)}
+                   />
+                ) : (
+                    record.matcher
+                )
+            ),
+ },
+ {
+ title: 'Notes',
+ dataIndex: 'notes',
+ key: 'notes',
+ },
+        {
+             title: 'Actions',
+             key: 'actions',
+             render: (text, record, index) => (
+                 mode === 'edit' ? (
+                     <Button icon={<DeleteOutlined />} onClick={() => handleDelete(index)} />
+                 ) : null
+             ),
+         },
+
+ ];
+
+//  const fileNameMatchers = mapdataSource?.fileNameMatchers || [];
+
+   const handleMatcherChange = (value, rowIndex) => {
+        const updatedData = [...data];
+        updatedData[rowIndex].matcher = value;
+        setData(updatedData);
     };
 
-    const columns = this.columns.map(col => {
-      if (!col.editable) {
-        return col;
-      }
-      return {
-        ...col,
-        onCell: (record: EditableTableRowType) => ({
-          record,
-          inputType: "text",
-          dataIndex: col.dataIndex,
-          title: col.title,
-          editing: this.isEditing(record),
-        }),
-      };
-    });
+    const handleDelete = (index) => {
+        const updatedData = data.filter((_, i) => i !== index);
+        setData(updatedData);
+    };
 
-    return (
-      <EditableContext.Provider value={this.props.form}>
-        <Table
-          components={components}
-          bordered
-          dataSource={this.props.dataSource}
-          columns={columns}
-          rowClassName="editable-row"
-          pagination={false}
-        />
-      </EditableContext.Provider>
+    const handleModeChange = (newMode) => {
+        setMode(newMode);
+    };
+
+ return (
+        <div>
+
+                   <Select
+                    defaultValue="view"
+                    onChange={handleModeChange}
+                    style={{ width: 120 }}>
+
+                    <Option value="view">
+                    <Icon type="eye" style={{marginRight: "5px"}}/>
+                    View
+                    </Option>
+                    <Option value="edit">
+                    <Icon type="edit" style={{marginRight: "5px"}}/>
+                     Edit
+                     </Option>
+                     </Select>
+                    {mode === 'edit' && (
+                          <div>
+                              <Button>Cancel</Button>
+                              <Button type="primary">Add</Button>
+                              <Button>Upload</Button>
+                              <Button>Save</Button>
+                          </div>
+                    )}
+
+                    <StyledTable
+                        dataSource={data}
+                        columns={columns}
+                        pagination={false}
+                    />
+                </div>
+
     );
-  }
-}
+};
 
-export default Form.create<EditableTableProps>({ name: "editable_table" })(EditableTable);
+export default ViewMatcherDetailsTable;
