@@ -4,7 +4,7 @@ import {
 } from "antd";
 
 const EditableContext = React.createContext<any>(null);
-const fileNameMatchers = mapdataSource?.fileNameMatchers || [];
+
 interface EditableCellProps {
   editing: boolean;
   dataIndex: string;
@@ -13,7 +13,6 @@ interface EditableCellProps {
   record: EditableTableRowType;
   index: number;
   children: React.ReactNode;
-  dataSource: fileNameMatchers;
 }
 
 interface EditableTableRowType {
@@ -192,7 +191,7 @@ class EditableTable extends React.Component<EditableTableProps> {
         <Table
           components={components}
           bordered
-          dataSource={fileNameMatchers}
+          dataSource={this.props.dataSource}
           columns={columns}
           rowClassName="editable-row"
           pagination={false}
