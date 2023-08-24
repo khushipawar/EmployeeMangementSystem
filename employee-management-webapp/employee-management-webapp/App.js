@@ -1,30 +1,35 @@
-function modeViewOrEdit(map: FileMap | null ,value: any, setMode: (value: (((prevState: string) => string) | string)) => void,  setMap: (value: (((prevState: (FileMap | null)) => (FileMap | null)) | FileMap | null)) => void, setCopyName: (value: (((prevState: string) => string) | string)) => void, setSpecialId) {
-  if (value === "view") {
-    setMode(value);
-  }
-  if(value==="edit")
-  {
-    fetchMapByMode(map.fileMapID,value).then((res) => {
-      res.originalMap.fileNameMatchers=[];
-      mapFetch(res, setMap, setCopyName, setSpecialId);
-    });
-    setMode(value);
-  }
-}
+public FileMapResponseDTO getOneFileMap(Integer fileMapID, String navigateType) {
+        LOGGER.info("CMT:Entered getOneFileMap fileMapID={}", fileMapID);
+        List<FileMap> listFileMaps = fileMapRepository.findByFileMapID(fileMapID).orElseThrow(() -> new FileMapNotFoundException(fileMapID));
+        FileMap fileMap = listFileMaps.stream().filter(f -> MapStatusType.ACTIVE.toString().equalsIgnoreCase(f.getStatus())).reduce((first, last) -> last).orElse(null);
+        long testcount = fileMapRepository.countByBuilding(fileMapID);
+        boolean buildflag = false;
+        if (testcount > 0) {
+            buildflag = true;
+        }
 
-
-
-export const fetchMapByMode = (mapId: number, mode:any) => instance
-  .get<FileMap>(`/fileMap/${mapId}`, { params: { navigateType: mode } })
-  .then((res) => {
-    if (res.status === 200) {
-      const originalMap = res.data;
-      const formattedMap = formatMap(res.data);
-      return { originalMap, formattedMap };
+        if ("edit".equalsIgnoreCase(navigateType)) {
+            fileMap = getFileMapFromCondition(fileMap, listFileMaps);
+        } else {
+            FileMap buildingFileMap = listFileMaps.stream().filter(f -> MapStatusType.BUILDING.toString().equalsIgnoreCase(f.getStatus())).findFirst().orElse(null);
+            if (fileMap == null || (fileMap != null && buildingFileMap != null && fileMap.getArchived())) {
+                fileMap = listFileMaps.stream().filter(f -> MapStatusType.BUILDING.toString().equalsIgnoreCase(f.getStatus())).findFirst().orElse(null);
+            }
+        }
+        FileMapResponseDTO fileMapResponseDTO = new FileMapResponseDTO();
+        /** prevent attribute rows from returning as file segments/columns .*/
+        if (fileMap != null) {
+            fileMap.setDelimitedFileColumns(
+                    fileMap.getDelimitedFileColumns().stream()
+                            .filter(col -> col.getSpecialRowID() == null).collect(Collectors.toList()));
+            fileMap.setFixedLengthFileSegments(
+                    fileMap.getFixedLengthFileSegments().stream()
+                            .filter(col -> col.getSpecialRowID() == null).collect(Collectors.toList()));
+            fileMapResponseDTO = fileMapMapper.map(fileMap);
+            fileMapResponseDTO.setRole(fileMapUserServiceImpl.getRole(fileMapResponseDTO.getFileMapID()));
+            fileMapResponseDTO.setBuildcheck(buildflag);
+        }
+        //write update transforms here
+        LOGGER.info("CMT:Exiting getOneFileMap fileMapID={}", fileMapID);
+        return fileMapResponseDTO;
     }
-    throw new Error("Error getting map from server.");
-  })
-  .catch((error) => {
-    history.push("/view");
-    handleError(error);
-  });
