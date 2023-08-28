@@ -1,66 +1,33 @@
-public FileMapResponseDTO getOneFileMap(Integer fileMapID, String navigateType) {
-        
-        List<FileMap> listFileMaps = fileMapRepository.findByFileMapID(fileMapID).orElseThrow(() -> new FileMapNotFoundException(fileMapID));
-        FileMap fileMap = listFileMaps.stream().filter(f -> MapStatusType.ACTIVE.toString().equalsIgnoreCase(f.getStatus())).reduce((first, last) -> last).orElse(null);
-        long testcount = fileMapRepository.countByBuilding(fileMapID);
-        boolean buildflag = false;
-        if (testcount > 0) {
-            buildflag = true;
-        }
-
-        if ("edit".equalsIgnoreCase(navigateType)) {
-            fileMap = getFileMapFromCondition(fileMap, listFileMaps);
-        } else {
-            FileMap buildingFileMap = listFileMaps.stream().filter(f -> MapStatusType.BUILDING.toString().equalsIgnoreCase(f.getStatus())).findFirst().orElse(null);
-            if (fileMap == null || (fileMap != null && buildingFileMap != null && fileMap.getArchived())) {
-                fileMap = listFileMaps.stream().filter(f -> MapStatusType.BUILDING.toString().equalsIgnoreCase(f.getStatus())).findFirst().orElse(null);
+@Override
+    public FileMapResponseDTO addAndUpdateMatchers(FileNameMatcherReqDTO fileNameMatcherReqDTO) {
+        LOGGER.info("CMT:Entering addAndUpdateMatchers MapName={}.", fileNameMatcherReqDTO.getFileMapID());
+        int fileMapID = fileNameMatcherReqDTO.getFileMapID();
+        int version = fileNameMatcherReqDTO.getVersion();
+        FileMap currFileMap = fileMapRepository.findById(new FileMapId(fileMapID, version)).orElseThrow(() -> new FileMapVersionNotFoundException(fileMapID, version));
+        List<FileNameMatcher> fileNameMatcherList = new ArrayList<>();
+        fileNameMatcherReqDTO.getMatchers().forEach(matcher -> {
+            String formattedMatcher = matcher.trim().toUpperCase();
+            Optional<FileNameMatcher> duplicatedFileNameMatcher = fileNameMatcherRepository.findByMatcher(formattedMatcher);
+            FileNameMatcher fileNameMatcher = new FileNameMatcher();
+            if (duplicatedFileNameMatcher.isPresent() && duplicatedFileNameMatcher.get().getFileMap().getFileMapID() != fileMapID) {
+                throw new FileNameMatcherDuplicateException(matcher, duplicatedFileNameMatcher.get().fileMap.getMapName());
+            } else if (duplicatedFileNameMatcher.isPresent() && duplicatedFileNameMatcher.get().getFileMap().getFileMapID() == fileMapID) {
+                fileNameMatcher.setFileNameMatcherID(duplicatedFileNameMatcher.get().getFileNameMatcherID());
             }
+            fileNameMatcher.setFileMap(currFileMap);
+            fileNameMatcher.setMatcher(formattedMatcher);
+            fileNameMatcher.setCreatedById(SecurityUtil.getUsername());
+            fileNameMatcher.setModifiedById(SecurityUtil.getUsername());
+            fileNameMatcherList.add(fileNameMatcher);
+        });
+        currFileMap.updateFileNameMatcher(fileNameMatcherList);
+        if (!currFileMap.getStatus().equals(MapStatusType.ACTIVE.toString())
+                && this.validateFileAttriBeforeActivate(currFileMap)
+                && this.validateFileMapColumnsBeforeActivate(currFileMap)) {
+            currFileMap.setStatus(MapStatusType.ACTIVE.toString());
         }
-        FileMapResponseDTO fileMapResponseDTO = new FileMapResponseDTO();
-        /** prevent attribute rows from returning as file segments/columns .*/
-        if (fileMap != null) {
-            fileMap.setDelimitedFileColumns(
-                    fileMap.getDelimitedFileColumns().stream()
-                            .filter(col -> col.getSpecialRowID() == null).collect(Collectors.toList()));
-            fileMap.setFixedLengthFileSegments(
-                    fileMap.getFixedLengthFileSegments().stream()
-                            .filter(col -> col.getSpecialRowID() == null).collect(Collectors.toList()));
-            fileMapResponseDTO = fileMapMapper.map(fileMap);
-            fileMapResponseDTO.setRole(fileMapUserServiceImpl.getRole(fileMapResponseDTO.getFileMapID()));
-            fileMapResponseDTO.setBuildcheck(buildflag);
-        }
-        //write update transforms here
-
-        return fileMapResponseDTO;
-    }
-
- private FileMap getFileMapFromCondition(FileMap fileMap, List<FileMap> listFileMaps) {
-       
-        FileMap file = null;
-        FileMap buildingFileMap = listFileMaps.stream().filter(f -> MapStatusType.BUILDING.toString().equalsIgnoreCase(f.getStatus())).reduce((first, last) -> last).orElse(null);
-        FileMap inactiveMap = listFileMaps.stream().filter(f -> MapStatusType.INACTIVE.toString().equalsIgnoreCase(f.getStatus())).reduce((first, last) -> last).orElse(null);
-        FileMap activeMap = listFileMaps.stream().filter(f -> MapStatusType.ACTIVE.toString().equalsIgnoreCase(f.getStatus())).reduce((first, last) -> last).orElse(null);
-        final Integer[] logicalFileColumnId = new Integer[1];
-        final Integer[] index = new Integer[1];
-
-        Integer bVersion = buildingFileMap != null ? buildingFileMap.getVersion() : null;
-        Integer aVersion = fileMap != null ? fileMap.getVersion() : null;
-        Integer version = getCorrectVersion(aVersion, bVersion);
-        if (buildingFileMap != null && buildingFileMap.getArchived() && inactiveMap != null && (fileMap == null || fileMap.getArchived())) {
-            file = generateIntermediateFilemapVersion(inactiveMap, version);
-        } else if (buildingFileMap == null && inactiveMap != null && activeMap == null) {
-            file = getFileMapNoBuild(inactiveMap, version);
-        } else if (buildingFileMap == null && inactiveMap != null) {
-            file = getFileMapNoBuild(activeMap, version);
-        } else if (buildingFileMap == null && inactiveMap == null) {
-            //here
-            file = generateIntermediateFilemapVersion(fileMap, version);
-
-        } else if (buildingFileMap == null || buildingFileMap.getArchived() && fileMap != null && inactiveMap != null) {
-            file = getFileMap(fileMap, inactiveMap, version);
-        } else {
-            file = buildingFileMap;
-        }
-        
-        return file;
+        FileMap updatedMap = fileMapRepository.save(currFileMap);
+        updateFileMapToInActive(updatedMap);
+        LOGGER.info("CMT:Exiting addAndUpdateMatchers MapName={}.", fileNameMatcherReqDTO.getFileMapID());
+        return fileMapMapper.map(updatedMap);
     }
