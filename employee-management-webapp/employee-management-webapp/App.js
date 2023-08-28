@@ -1,6 +1,6 @@
 @Override
     public FileMapResponseDTO addAndUpdateMatchers(FileNameMatcherReqDTO fileNameMatcherReqDTO) {
-        LOGGER.info("CMT:Entering addAndUpdateMatchers MapName={}.", fileNameMatcherReqDTO.getFileMapID());
+    
         int fileMapID = fileNameMatcherReqDTO.getFileMapID();
         int version = fileNameMatcherReqDTO.getVersion();
         FileMap currFileMap = fileMapRepository.findById(new FileMapId(fileMapID, version)).orElseThrow(() -> new FileMapVersionNotFoundException(fileMapID, version));
@@ -28,6 +28,6 @@
         }
         FileMap updatedMap = fileMapRepository.save(currFileMap);
         updateFileMapToInActive(updatedMap);
-        LOGGER.info("CMT:Exiting addAndUpdateMatchers MapName={}.", fileNameMatcherReqDTO.getFileMapID());
+        
         return fileMapMapper.map(updatedMap);
     }
