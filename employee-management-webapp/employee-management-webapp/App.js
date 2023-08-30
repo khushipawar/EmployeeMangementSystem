@@ -59,8 +59,34 @@ public FileMapResponseDTO getOneFileMap(Integer fileMapID, String navigateType) 
         } else if (buildingFileMap == null || buildingFileMap.getArchived() && fileMap != null && inactiveMap != null) {
             file = getFileMap(fileMap, inactiveMap, version);
         } else {
-            file = buildingFileMap;
+            file = copyFileNameMatchers(fileMap);
         }
         LOGGER.info("CMT:Exiting getFileMapFromCondition.");
         return file;
+    }
+  public FileMap copyFileNameMatchers(FileMap fileMap)
+    {
+        FileNameMatcherReqDTO fileNameMatcherReqDTO = new FileNameMatcherReqDTO();
+
+        int fileMapId = fileMap.getFileMapID();
+        int version = fileMap.getVersion();
+        ArrayList<String> matcherList = new ArrayList<>();
+        for(int i=0; i< fileMap.fileNameMatchers.size();i++)
+        {
+            String matchers = fileMap.getFileNameMatchers().get(i).getMatcher();
+            matcherList.add(matchers);
+            fileNameMatcherReqDTO.setMatchers(matcherList);
+        }
+        List<FileNameMatcher> fileNameMatcherList = new ArrayList<>();
+        fileNameMatcherReqDTO.getMatchers().forEach(matcher -> {
+            String formattedMatcher = matcher.trim().toUpperCase();
+            Optional<FileNameMatcher> duplicatedFileNameMatcher = fileNameMatcherRepository.findByMatcher(formattedMatcher);
+            FileNameMatcher fileNameMatcher = new FileNameMatcher();
+            fileNameMatcher.setFileMap(fileMap);
+            fileNameMatcher.setMatcher(formattedMatcher);
+            fileNameMatcher.setCreatedById(SecurityUtil.getUsername());
+            fileNameMatcher.setModifiedById(SecurityUtil.getUsername());
+            fileNameMatcherList.add(fileNameMatcher);
+        });
+        return fileMap;
     }
