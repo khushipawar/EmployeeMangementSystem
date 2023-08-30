@@ -1,3 +1,28 @@
+public FileMap copyFileNameMatchers(FileMap activeFileMap, FileMap buildingFileMap) {
+    List<FileNameMatcher> activeMatchers = activeFileMap.getFileNameMatchers();
+    List<FileNameMatcher> buildingMatchers = buildingFileMap.getFileNameMatchers();
+
+    for (FileNameMatcher activeMatcher : activeMatchers) {
+        String formattedMatcher = activeMatcher.getMatcher().trim().toUpperCase();
+        Optional<FileNameMatcher> duplicatedFileNameMatcher = fileNameMatcherRepository.findByMatcher(formattedMatcher);
+
+        if (duplicatedFileNameMatcher.isEmpty()) {
+            FileNameMatcher newMatcher = new FileNameMatcher();
+            newMatcher.setFileMap(buildingFileMap);
+            newMatcher.setMatcher(formattedMatcher);
+            newMatcher.setCreatedById(SecurityUtil.getUsername());
+            newMatcher.setModifiedById(SecurityUtil.getUsername());
+            buildingMatchers.add(newMatcher);
+        }
+    }
+
+    return buildingFileMap;
+}
+
+
+
+
+
 public FileMapResponseDTO getOneFileMap(Integer fileMapID, String navigateType) {
         LOGGER.info("CMT:Entered getOneFileMap fileMapID={}", fileMapID);
         List<FileMap> listFileMaps = fileMapRepository.findByFileMapID(fileMapID).orElseThrow(() -> new FileMapNotFoundException(fileMapID));
