@@ -1,19 +1,111 @@
-  if (dateFormat) {
+getValidation = (values) => {
+        let isErr = false
+        let errors = {}
+        const x = []
+        const ids = Object.keys(values);
 
-            return (
-                <Input
-                    type="text"
-                    name={key===3?`transformations[uniqueID].elseValue` : (key===2)?`logicalDerivationRowsets.[${index}].thenValue`:`valueTransformation.[${index}].mappedValue`}
-                    style={{width: 180, marginLeft: 10}}
-                    placeholder={(key===3)?"Else":key ===2?"Then":"Map to"}
-                    onKeyUp={(e: any) => this.handleKey(e, index, uniqueID)}
-                    onChange={(e: any) => key===3? this.handleChange(e, index, uniqueID, "elseInd") : key===2?this.handleChange(e, index, uniqueID, "thenValue"):this.handleChange(e, index, uniqueID, "mappedValue")}
-                    value={key=== 3 ? this.getElse(item.elseValue, uniqueID) : key===2? item.thenValue:item.mappedValue}
-                    allowClear
-                    disabled={(key === 3 ? this.getDisabled(item.elseInd, item.blankInd, hardcoded, "elseInd")
-                                                    :key===2 ? this.getDisabled(item.thenValue, item.blankInd, hardcoded, "thenValue")
-                                                    :this.getDisabled(item.mappedValue, item.blank, hardcoded, "mappedValue")) || !editing}
+        ids && ids.map(uniqueID => {
 
-                />
-            );
-        }
+            errors[uniqueID] = {valueTransformation: [], logicalTransformation: [], logicalRelation: "", logicalDerivationRowsets: []}
+            if (values[uniqueID].hardcodedValue && values[uniqueID].hardcodedValue.value) {
+                isErr = false
+            } else {
+                values[uniqueID] && values[uniqueID].valueTransformation && values[uniqueID].valueTransformation.forEach(item => {
+                    const errorVal = {}
+
+                        if (!item.mappedValue && !item.blank) {
+                            errorVal.mappedValue = "Map to is required."
+                            isErr = true
+                        }
+                        if (this.state.dateError == true) {
+                        let reg=/^[0-9-]+$/;
+
+                            if (item.mappedValue.split("-")[0] > 12 || item.mappedValue.split("-")[1] > 31 || item.mappedValue.split("-")[2] < 1920 || item.mappedValue.split("-")[2] > 9999) {
+                                errorVal.mappedValue = "Invalid Date."
+                                isErr = true
+                            }
+                            if(!reg.test(item.mappedValue) && item.mappedValue)
+                            {
+                             errorVal.mappedValue = "Invalid Date."
+                             isErr = true
+                            }
+
+                        }
+                        if (!item.value) {
+                            errorVal.value = "Map from is required."
+                            isErr = true
+                        }
+                    x.push(item.value)
+                    errors[uniqueID].valueTransformation.push(errorVal)
+                })
+
+                values[uniqueID] && values[uniqueID].logicalTransformation && values[uniqueID].logicalTransformation.forEach(item => {
+                    const errorLogical = {}
+                     if (!item.comparisonValue && !item.blank) {
+                            isErr = true;
+                            errorLogical.comparisonValue = "value or blank is required."
+                        }
+                     if (this.state.dateError == true) {
+                              let reg=/^[0-9-]+$/;
+
+                                  if (item.mappedValue.split("-")[0] > 12 || item.mappedValue.split("-")[1] > 31 || item.mappedValue.split("-")[2] < 1920 || item.mappedValue.split("-")[2] > 9999) {
+                                       errorVal.mappedValue = "Invalid Date."
+                                       isErr = true
+                                      }
+                                  if(!reg.test(item.mappedValue) && item.mappedValue)
+                                    {
+                                      errorVal.mappedValue = "Invalid Date."
+                                      isErr = true
+                                       }
+                     }
+                     if (!item.comparisonFileColumnTargetValueID || item.comparisonFileColumnTargetValueID ==="") {
+                            isErr = true;
+                            errorLogical.comparisonFileColumnTargetValueID = "Target is required."
+                        }
+                    if (!item.logicOperator) {
+                            isErr = true;
+                            errorLogical.logicOperator = "Condition is required."
+                        }
+                        errors[uniqueID].logicalTransformation.push(errorLogical)
+                })
+                values[uniqueID] && values[uniqueID].logicalDerivationRowsets && values[uniqueID].logicalDerivationRowsets.forEach(item => {
+                 const errorDeriveCondition = {logicalDerivationConditions : []}
+
+                    item.logicalDerivationConditions.forEach((conItem) =>{
+                   let errorCon={}
+                       if (!conItem.comparisonValue && !conItem.blankInd) {
+                                   isErr = true;
+                                   errorCon.comparisonValue = "value or blank is required."
+                                   }
+                              if (!conItem.comparisonFileColumnTargetValueID || conItem.comparisonFileColumnTargetValueID ==="") {
+                                   isErr = true;
+                                   errorCon.comparisonFileColumnTargetValueID = "Target is required."
+                                   }
+                                   if (!conItem.logicalOperator) {
+                                    isErr = true;
+                                    errorCon.logicalOperator = "Condition is required."
+                                    }
+                                    errorDeriveCondition.logicalDerivationConditions.push(errorCon)
+                    })
+                    if(!item.thenValue && !item.blankInd){
+                    errorDeriveCondition.thenValue = "value or blank is required."
+                    }
+                 errors[uniqueID].logicalDerivationRowsets.push(errorDeriveCondition)
+                })
+
+                let errorLogicalRelation = ""
+
+                if( values[uniqueID] && values[uniqueID].logicalTransformation.length > 1 && values[uniqueID].logicalRelation == null){
+                    isErr = true;
+
+                    errorLogicalRelation = "Condition is required"
+                    errors[uniqueID].logicalRelation = errorLogicalRelation
+                    {<p> errorLogicalRelation</p>}
+
+                }
+            }
+        })
+
+        this.setState({isError: isErr})
+        return errors;
+    }
