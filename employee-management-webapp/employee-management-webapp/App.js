@@ -1,147 +1,222 @@
+    {transformations[uniqueID] && transformations[uniqueID].logicalTransformation.length > 1 ?
+                            <Col>
+                                <Select
+                                allowClear
+                                showSearch
+                                dropdownMatchSelectWidth={false}
+                                style={{width: 120}}
+                                placeholder="AND/OR"
+                                optionFilterProp="children"
+                                name={`logicalRelation`}
+                                onChange={(event) => this.handleChangeSelect(event, 0, uniqueID, "logicalRelation")}
+                                value={transformations[uniqueID] && transformations[uniqueID].logicalRelation}
+                                disabled = {!editing}
+                                >
+                                <Option value="AND">AND</Option>
+                                <Option value="OR">OR</Option>
+                            </Select>
 
-handleKey = (e, index, uniqueID, isValueTransformation) => {
-  const { keyCode, target } = e;
-  const { value } = target;
-
-  const isNumberKey = (keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105);
-  const hasReachedMonth = value.length === 2 && parseInt(value, 10) < 13;
-  const hasReachedDay = value.length === 5 && parseInt(value.split('-')[1], 10) < 32;
-
-  if (isNumberKey && (hasReachedMonth || hasReachedDay)) {
-    const newValue = value + '-';
-    
-    this.setState((prevState) => ({
-      dateError: true,
-      transformations: {
-        ...prevState.transformations,
-        [uniqueID]: {
-          ...prevState.transformations[uniqueID],
-          [isValueTransformation ? 'valueTransformation' : 'logicalDerivation']: [
-            ...prevState.transformations[uniqueID][isValueTransformation ? 'valueTransformation' : 'logicalDerivation']
-              .slice(0, index),
-            { ...prevState.transformations[uniqueID][isValueTransformation ? 'valueTransformation' : 'logicalDerivation'][index], mappedValue: newValue },
-            ...prevState.transformations[uniqueID][isValueTransformation ? 'valueTransformation' : 'logicalDerivation']
-              .slice(index + 1)
-          ]
-        }
-      }
-    }));
-  }
-};
-
-
-
-
-
-
-getValidation = (values) => {
-        let isErr = false
-        let errors = {}
-        const x = []
-        const ids = Object.keys(values);
-
-        ids && ids.map(uniqueID => {
-
-            errors[uniqueID] = {valueTransformation: [], logicalTransformation: [], logicalRelation: "", logicalDerivationRowsets: []}
-            if (values[uniqueID].hardcodedValue && values[uniqueID].hardcodedValue.value) {
-                isErr = false
-            } else {
-                values[uniqueID] && values[uniqueID].valueTransformation && values[uniqueID].valueTransformation.forEach(item => {
-                    const errorVal = {}
-
-                        if (!item.mappedValue && !item.blank) {
-                            errorVal.mappedValue = "Map to is required."
-                            isErr = true
+                                {(this.state.validations && this.state.validations[uniqueID] &&
+                                    this.state.validations[uniqueID].logicalRelation)
+                                    ?
+                                    <p style={{
+                                        color: 'red',
+                                        marginLeft: 15
+                                    }}>{this.state.validations[uniqueID].logicalRelation}</p> : null
+                                }
+                            </Col>
+                                : null
                         }
-                        if (this.state.dateError == true) {
-                        let reg=/^[0-9-]+$/;
 
-                            if (item.mappedValue.split("-")[0] > 12 || item.mappedValue.split("-")[1] > 31 || item.mappedValue.split("-")[2] < 1920 || item.mappedValue.split("-")[2] > 9999) {
-                                errorVal.mappedValue = "Invalid Date."
-                                isErr = true
-                            }
-                            if(!reg.test(item.mappedValue) && item.mappedValue)
-                            {
-                             errorVal.mappedValue = "Invalid Date."
-                             isErr = true
-                            }
+                        {transformations[uniqueID] && transformations[uniqueID].logicalTransformation.length > 1 ?
+                            <Icon
+                                style={{marginLeft: 5, marginTop: 10}}
+                                className="dynamic-delete-button"
+                                type="question-circle-o"
+                                title="AND evaluates all conditions must be true for the overall condition to be true. OR evaluates that one of the conditions must be true for the overall condition to be true."
+                            /> : null
+                        }
 
-                        }
-                        if (!item.value) {
-                            errorVal.value = "Map from is required."
-                            isErr = true
-                        }
-                    x.push(item.value)
-                    errors[uniqueID].valueTransformation.push(errorVal)
-                })
+                        {values  && values.logicalTransformation && values.logicalTransformation.map((item, index) => (<>
+                       <Row style={{marginBottom: 10}}><Col span={8}>
+                                    <span>IF</span>
 
-                values[uniqueID] && values[uniqueID].logicalTransformation && values[uniqueID].logicalTransformation.forEach(item => {
-                    const errorLogical = {}
-                     if (!item.comparisonValue && !item.blank) {
-                            isErr = true;
-                            errorLogical.comparisonValue = "value or blank is required."
-                        }
-                     if (this.state.dateError == true) {
-                              let reg=/^[0-9-]+$/;
+                                    <Select
+                                        showSearch
+                                        allowClear
+                                        style={{width: 180}}
+                                        optionFilterProp="children"
+                                        disabled={this.getDisabled(item.comparisonFileColumnTargetValueID, item.blank, hardcoded, 'targetValue') || !editing}
+                                        name={`LogicalTransformation.[${index}].comparisonFileColumnTargetValueID`}
+                                        onChange={(event) => {this.handleChangeSelect(event, index, uniqueID, "targetValue")}}
+                                        value={item.comparisonFileColumnTargetValueID? item.comparisonFileColumnTargetValueID: this.props.fileColumnProperties.logicalTransformation && this.props.fileColumnProperties.logicalTransformation[index].comparisonFileColumnTargetValueID}
+                                    >
+                                        {this.checkTargets(this.state.mappedTargets).map((target, i) =>
 
-                                  if (item.mappedValue.split("-")[0] > 12 || item.mappedValue.split("-")[1] > 31 || item.mappedValue.split("-")[2] < 1920 || item.mappedValue.split("-")[2] > 9999) {
-                                       errorVal.mappedValue = "Invalid Date."
-                                       isErr = true
-                                      }
-                                  if(!reg.test(item.mappedValue) && item.mappedValue)
-                                    {
-                                      errorVal.mappedValue = "Invalid Date."
-                                      isErr = true
-                                       }
-                     }
-                     if (!item.comparisonFileColumnTargetValueID || item.comparisonFileColumnTargetValueID ==="") {
-                            isErr = true;
-                            errorLogical.comparisonFileColumnTargetValueID = "Target is required."
-                        }
-                    if (!item.logicOperator) {
-                            isErr = true;
-                            errorLogical.logicOperator = "Condition is required."
-                        }
-                        errors[uniqueID].logicalTransformation.push(errorLogical)
-                })
-                values[uniqueID] && values[uniqueID].logicalDerivationRowsets && values[uniqueID].logicalDerivationRowsets.forEach(item => {
-                 const errorDeriveCondition = {logicalDerivationConditions : []}
-
-                    item.logicalDerivationConditions.forEach((conItem) =>{
-                   let errorCon={}
-                       if (!conItem.comparisonValue && !conItem.blankInd) {
-                                   isErr = true;
-                                   errorCon.comparisonValue = "value or blank is required."
-                                   }
-                              if (!conItem.comparisonFileColumnTargetValueID || conItem.comparisonFileColumnTargetValueID ==="") {
-                                   isErr = true;
-                                   errorCon.comparisonFileColumnTargetValueID = "Target is required."
-                                   }
-                                   if (!conItem.logicalOperator) {
-                                    isErr = true;
-                                    errorCon.logicalOperator = "Condition is required."
+                                            <Option
+                                                value={target.comparisonFileColumnTargetValueID}
+                                                key={i}
+                                            >
+                                               {/* {target.name}*/}
+                                                {target.columnName + "-" + target.name}
+                                            </Option>
+                                        )}
+                                    </Select>
+                                    {(this.state.validations && this.state.validations[uniqueID] &&
+                                        this.state.validations[uniqueID].logicalTransformation &&
+                                        this.state.validations[uniqueID].logicalTransformation[index] &&
+                                        this.state.validations[uniqueID].logicalTransformation[index].comparisonFileColumnTargetValueID) ?
+                                        <p style={{color: 'red', marginLeft: 15}}>{this.state.validations[uniqueID].logicalTransformation[index].comparisonFileColumnTargetValueID}</p> : null
                                     }
-                                    errorDeriveCondition.logicalDerivationConditions.push(errorCon)
-                    })
-                    if(!item.thenValue && !item.blankInd){
-                    errorDeriveCondition.thenValue = "value or blank is required."
-                    }
-                 errors[uniqueID].logicalDerivationRowsets.push(errorDeriveCondition)
-                })
 
-                let errorLogicalRelation = ""
+                                </Col>
+                           {this.state.isRestrict == true ?
+                               <Col span = {4}>
+                                   <Select
+                                       allowClear
+                                       showSearch
+                                       dropdownMatchSelectWidth={false}
+                                       style={{width: 60}}
+                                       placeholder="Condition"
+                                       optionFilterProp="children"
+                                       onChange={(event) => this.handleChangeSelect(event, index, uniqueID, "logicOperator")}
+                                       disabled={this.getDisabled(item.logicOperator, item.blank, hardcoded, 'logicOperator') || !editing}
+                                       name={`LogicalTransformation.[${index}].logicOperator`}
+                                       //                     onBlur={handleBlur}
+                                       value={item.logicOperator}>
+                                       <Option value="=" title="Equal to">{"="}</Option>
+                                       <Option value="<>" title="Not Equal to">{"<>"}</Option>
+                                   </Select>
+                                   {(this.state.validations && this.state.validations[uniqueID] &&
+                                       this.state.validations[uniqueID].logicalTransformation &&
+                                       this.state.validations[uniqueID].logicalTransformation[index] && this.state.validations[uniqueID].logicalTransformation[index].logicOperator) ?
+                                       <p style={{color: 'red'}}>{this.state.validations[uniqueID].logicalTransformation[index].logicOperator}</p> : null
+                                   }
 
-                if( values[uniqueID] && values[uniqueID].logicalTransformation.length > 1 && values[uniqueID].logicalRelation == null){
-                    isErr = true;
+                               </Col>
+                               :
+                               <Col span={4}>
+                                   <Select
+                                       allowClear
+                                       showSearch
+                                       dropdownMatchSelectWidth={false}
+                                       style={{width: 60}}
+                                       placeholder="Condition"
+                                       optionFilterProp="children"
+                                       onChange={(event) => this.handleChangeSelect(event, index, uniqueID, "logicOperator")}
+                                       disabled={this.getDisabled(item.logicOperator, item.blank, hardcoded, 'logicOperator') || !editing}
+                                       name={`LogicalTransformation.[${index}].logicOperator`}
+                                       //                     onBlur={handleBlur}
+                                       value={item.logicOperator}>
+                                       <Option value="=" title="Equal to">{"="}</Option>
+                                       <Option value="<" title="Smaller than">{"<"}</Option>
+                                       <Option value=">" title="Greater than">{">"}</Option>
+                                       <Option value="<>" title="Not Equal to">{"<>"}</Option>
+                                   </Select>
+                                   {(this.state.validations && this.state.validations[uniqueID] &&
+                                       this.state.validations[uniqueID].logicalTransformation &&
+                                       this.state.validations[uniqueID].logicalTransformation[index] && this.state.validations[uniqueID].logicalTransformation[index].logicOperator) ?
+                                       <p style={{color: 'red'}}>{this.state.validations[uniqueID].logicalTransformation[index].logicOperator}</p> : null
+                                   }
+                               </Col>
+                           }
+                                    {this.state.logicalEnumOptions && this.state.logicalEnumOptions.length > 0 && this.state.logicalIndex == index
+                                        ?
+                                        <Col span={7}>
+                                            <Select
+                                                allowClear
+                                                showSearch
+                                                dropdownMatchSelectWidth={false}
+                                                style={{width: 180}}
+                                                placeholder="value"
+                                                optionFilterProp="children"
+                                                disabled={this.getDisabled(item.comparisonValue, item.blank, hardcoded, 'comparisonValue') || !editing}
+                                                name={`logicalTransformation.[${index}].comparisonValue`}
+                                                onChange={e => this.handleChangeSelect(e, index, uniqueID, "comparisonValue")}
+                                                onFocus={e => this.handleChangeSelect(e, index, uniqueID, "comparisonValue")}
+                                                value={item.comparisonValue}
+                                            >
+                                                {this.state.logicalEnumOptions?.map((enumOption) => (<Option value={enumOption}>{enumOption}</Option>))}
+                                            </Select>
 
-                    errorLogicalRelation = "Condition is required"
-                    errors[uniqueID].logicalRelation = errorLogicalRelation
-                    {<p> errorLogicalRelation</p>}
+                                            {(this.state.validations && this.state.validations[uniqueID] &&
+                                                this.state.validations[uniqueID].logicalTransformation &&
+                                                this.state.validations[uniqueID].logicalTransformation[index] &&
+                                                this.state.validations[uniqueID].logicalTransformation[index].comparisonValue)
+                                                ?
+                                                <p style={{color: 'red', marginLeft: 15}}>{this.state.validations[uniqueID].logicalTransformation[index].comparisonValue}</p> : null
+                                            }
+                                        </Col> : this.state.logicalBoolean && this.state.logicalIndex == index ?
+                                            <>
+                                                <Col span={7}>
+                                                    <Select
+                                                        allowClear
+                                                        showSearch
+                                                        dropdownMatchSelectWidth={false}
+                                                        style={{width: 180}}
+                                                        placeholder="value"
+                                                        optionFilterProp="children"
+                                                        disabled={this.getDisabled(item.comparisonValue, item.blank, hardcoded, 'comparisonValue') || !editing}
+                                                        name={`logicalTransformation.[${index}].comparisonValue`}
+                                                        onChange={e => this.handleChangeSelect(e, index, uniqueID, "comparisonValue")}
+                                                        onFocus={e => this.handleChangeSelect(e, index, uniqueID, "comparisonValue")}
+                                                        value={item.comparisonValue}
+                                                    >
+                                                        <Option value="1">True</Option>
+                                                        <Option value="0">False</Option>
+                                                    </Select>
 
-                }
-            }
-        })
+                                                    {(this.state.validations && this.state.validations[uniqueID] &&
+                                                        this.state.validations[uniqueID].logicalTransformation &&
+                                                        this.state.validations[uniqueID].logicalTransformation[index] &&
+                                                        this.state.validations[uniqueID].logicalTransformation[index].comparisonValue)
+                                                        ?
+                                                        <p style={{
+                                                            color: 'red',
+                                                            marginLeft: 15
+                                                        }}>{this.state.validations[uniqueID].logicalTransformation[index].comparisonValue}</p> : null
+                                                    }
+                                                </Col>
+                                            </>
+                                            :
+                                            <Col span={7}>
+                                                <Input
+                                                    type="text"
+                                                    name={`logicalTransformation.[${index}].comparisonValue`}
+                                                    style={{width: 155}}
+                                                    placeholder="value"
+                                                    onChange={e => this.handleChange(e, index, uniqueID, "comparisonValue")}
+                                                    onFocus={e => this.handleChange(e, index, uniqueID, "comparisonValue")}
+                                                    value={(item.comparisonValue == 1 && this.state.logicalTransformBoolean.includes(item.comparisonFileColumnTargetValueID)) ? "True" : (item.comparisonValue == null && item.comparisonValue == '') ? null : (item.comparisonValue == 0 && item.comparisonValue != '' && this.state.logicalTransformBoolean.includes(item.comparisonFileColumnTargetValueID)) ? "False" : item.comparisonValue}
+                                                    allowClear
+                                                    disabled={this.getDisabled(item.comparisonValue, item.blank, hardcoded, 'comparisonValue') || !editing}
+                                                />
+                                                    {(this.state.validations && this.state.validations[uniqueID] &&
+                                                    this.state.validations[uniqueID].logicalTransformation &&
+                                                    this.state.validations[uniqueID].logicalTransformation[index] &&
+                                                    this.state.validations[uniqueID].logicalTransformation[index].comparisonValue)
+                                                    ?
+                                                    <p style={{
+                                                        color: 'red',
+                                                        marginLeft: 15
+                                                    }}>{this.state.validations[uniqueID].logicalTransformation[index].comparisonValue}</p> : null
+                                                }
+                                            </Col>
+                                    }
 
-        this.setState({isError: isErr})
-        return errors;
-    }
+
+                                    <Col span={5}>
+                                        {this.getBlankCheck(uniqueID, index, item, "logical")}
+
+                                       { editing?<Icon
+                                            className="dynamic-delete-button"
+                                            type="minus-circle-o"
+                                            style={{marginLeft: 5, marginTop: 10}}
+                                            onClick={() => this.remove(index, uniqueID, "logical")}
+                                        /> : null}
+                                    </Col>
+                                </Row>
+
+
+                            </>
+                        ))}
