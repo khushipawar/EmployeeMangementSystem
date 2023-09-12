@@ -1,3 +1,39 @@
+
+handleKey = (e, index, uniqueID, isValueTransformation) => {
+  const { keyCode, target } = e;
+  const { value } = target;
+
+  const isNumberKey = (keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105);
+  const hasReachedMonth = value.length === 2 && parseInt(value, 10) < 13;
+  const hasReachedDay = value.length === 5 && parseInt(value.split('-')[1], 10) < 32;
+
+  if (isNumberKey && (hasReachedMonth || hasReachedDay)) {
+    const newValue = value + '-';
+    
+    this.setState((prevState) => ({
+      dateError: true,
+      transformations: {
+        ...prevState.transformations,
+        [uniqueID]: {
+          ...prevState.transformations[uniqueID],
+          [isValueTransformation ? 'valueTransformation' : 'logicalDerivation']: [
+            ...prevState.transformations[uniqueID][isValueTransformation ? 'valueTransformation' : 'logicalDerivation']
+              .slice(0, index),
+            { ...prevState.transformations[uniqueID][isValueTransformation ? 'valueTransformation' : 'logicalDerivation'][index], mappedValue: newValue },
+            ...prevState.transformations[uniqueID][isValueTransformation ? 'valueTransformation' : 'logicalDerivation']
+              .slice(index + 1)
+          ]
+        }
+      }
+    }));
+  }
+};
+
+
+
+
+
+
 getValidation = (values) => {
         let isErr = false
         let errors = {}
