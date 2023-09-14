@@ -146,3 +146,83 @@
       );      
   }
 }
+
+function mapping(dataIndex: string, index: number, form: any, record: DraggableTableRow, formInput) 
+    return (                                                                                        
+        <Form.Item style={{margin: 0}} id={`${dataIndex}-${index}`}>                                
+            {form.getFieldDecorator(dataIndex, {                                                    
+                validateTrigger: ["onChange", "onBlur"],                                            
+                initialValue: record[dataIndex],                                                    
+            })(formInput)}                                                                          
+        </Form.Item>                                                                                
+    );    
+
+function targetVal(record: DraggableTableRow, dataIndex: string, targets: TargetDetails[]) {                                                       
+    return (record[dataIndex]?.map((targetValue: string) => (                                                                                      
+        <div>                                                                                                                                      
+            {targetValue && targets.find((target: TargetDetails) => target.selectKey === targetValue.split("-")[0])?.name}                         
+            {"\n"}                                                                                                                                 
+        </div>                                                                                                                                     
+    )));                                                                                                                                           
+}   
+
+const colValDataIndex = function (assignedViewVisible: boolean, assigned: boolean, assignDisabled: boolean, assignVisible: boolean, dataSource: MapColumn[], index: number, form: any, editing: boolean) {           
+                                                                                                                                                                                                                     
+    const assignButton = assigned ? (                                                                                                                                                                                
+        <Button                                                                                                                                                                                                      
+            data-cy="assignButton"                                                                                                                                                                                   
+            onClick={this.handleAssignClick}                                                                                                                                                                         
+            style={{backgroundColor: assignBackground, color: assignFontColor}}                                                                                                                                      
+            disabled={assignDisabled}                                                                                                                                                                                
+        >                                                                                                                                                                                                            
+            Assigned                                                                                                                                                                                                 
+        </Button>                                                                                                                                                                                                    
+    ) : (                                                                                                                                                                                                            
+        <Button                                                                                                                                                                                                      
+            onClick={this.handleAssignClick}                                                                                                                                                                         
+            style={{border: `1px solid ${outlineColor}`}}                                                                                                                                                            
+            disabled={assignDisabled}                                                                                                                                                                                
+        >                                                                                                                                                                                                            
+            Assign                                                                                                                                                                                                   
+        </Button>                                                                                                                                                                                                    
+    );                                                                                                                                                                                                               
+    const assignText = assigned ? (<span>Assigned <Icon type="search" onClick={this.handleSearchClick} /></span>) : "Not Assigned";                                                                                  
+                                                                                                                                                                                                                     
+    return (                                                                                                                                                                                                         
+        <>                                                                                                                                                                                                           
+            {                                                                                                                                                                                                        
+                assignVisible && (                                                                                                                                                                                   
+                    <AssignForm                                                                                                                                                                                      
+                        targets={this.state.targetOptions}                                                                                                                                                           
+                        dataSource={dataSource}                                                                                                                                                                      
+                        assignVisible={assignVisible}                                                                                                                                                                
+                        setVisible={this.setVisible}                                                                                                                                                                 
+                        fileColumnProperties={dataSource[index]?.fileColumnProperties || []}                                                                                                                         
+                        form={form}                                                                                                                                                                                  
+                        save={this.save}                                                                                                                                                                             
+                        delete={this.delete}                                                                                                                                                                         
+                        style={{width:170}}                                                                                                                                                                          
+                        editing ={true}                                                                                                                                                                              
+                    />                                                                                                                                                                                               
+                )                                                                                                                                                                                                    
+            }                                                                                                                                                                                                        
+                                                                                                                                                                                                                     
+            {editing ? assignButton : assignText}                                                                                                                                                                    
+            {assignedViewVisible &&(                                                                                                                                                                                 
+            <AssignForm                                                                                                                                                                                              
+                        targets={this.state.targetOptions}                                                                                                                                                           
+                        dataSource={dataSource}                                                                                                                                                                      
+                        assignVisible={assignedViewVisible}                                                                                                                                                          
+                        setVisible={this.setMagnifyVisible}                                                                                                                                                          
+                        fileColumnProperties={dataSource[index]?.fileColumnProperties || []}                                                                                                                         
+                        form={form}                                                                                                                                                                                  
+                        save={this.save}                                                                                                                                                                             
+                        delete={this.delete}                                                                                                                                                                         
+                        style={{width:170}}                                                                                                                                                                          
+                        editing ={false}                                                                                                                                                                             
+                    />                                                                                                                                                                                               
+)}                                                                                                                                                                                                                   
+                                                                                                                                                                                                                     
+        </>                                                                                                                                                                                                          
+    );                                                                                                                                                                                                               
+};                                                                                                                                                                                                                   
