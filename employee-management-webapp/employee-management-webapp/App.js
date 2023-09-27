@@ -1,157 +1,89 @@
- getValidation = (values) => {
-        let isErr = false
-        let errors = {}
-        const x = []
-        const ids = Object.keys(values);
-        ids && ids.map(uniqueID => {
-            errors[uniqueID] = {valueTransformation: [], logicalTransformation: [], logicalRelation: "", logicalDerivationRowsets: [], elseValue:''}
+class YourComponent extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      transformations: {}, // Your transformations state
+      dateError: false,
+      dateErrorMessage: "", // Error message for date
+    };
+  }
 
-            if(values?.[uniqueID]?.elseValue && this.state.dateErrorElse){
-              let reg=/^[0-9-]+$/;
-                if (values?.[uniqueID]?.elseValue.split("-")[0] > 12 ||
-                    values?.[uniqueID]?.elseValue.split("-")[1] > 31 ||
-                    values?.[uniqueID]?.elseValue.split("-")[2] < 1920 ||
-                    values?.[uniqueID]?.elseValue.split("-")[2] > 9999) {
-                        errors[uniqueID].elseValue ="Invalid Date"
-                        isErr = true
-                  }
-            if((!reg.test(values?.[uniqueID]?.elseValue) && values?.[uniqueID]?.elseValue) ||!isNaN(values?.[uniqueID]?.elseValue))
-                 {
-                     errors[uniqueID].elseValue ="Invalid Date"
-                    isErr = true
-                 }
+  handleDateChange = (e, index, uniqueID, key, condIndex) => {
+    const transformations = { ...this.state.transformations };
 
-            }
-            if (values[uniqueID].hardcodedValue && values[uniqueID].hardcodedValue.value) {
-                isErr = false
-            } else {
-                values[uniqueID] && values[uniqueID].valueTransformation && values[uniqueID].valueTransformation.forEach(item => {
-                    const errorVal = {}
-                      if (this.state.dateErrorforMapped == true) {
-                       let reg=/^[0-9-]+$/;
-                         if (item.mappedValue.split("-")[0] > 12 || item.mappedValue.split("-")[1] > 31 || item.mappedValue.split("-")[2] < 1920 || item.mappedValue.split("-")[2] > 9999) {
-                                errorVal.mappedValue = "Invalid Date."
-                                isErr = true
-                           }
-                         if(!reg.test(item.mappedValue) && item.mappedValue)
-                           {
-                              errorVal.mappedValue = "Invalid Date."
-                              isErr = true
-                            }
+    if (isNaN(e.key) && key === "elselnd") {
+      // Format the entered date as "MM-DD-YYYY" format
+      if (
+        (e.keyCode >= 48 && e.keyCode <= 57) ||
+        (e.keyCode >= 96 && e.keyCode <= 105)
+      ) {
+        const rawDate = e.target.value;
+        const formattedDate = rawDate
+          .replace(/\D/g, '') // Remove non-numeric characters
+          .slice(0, 8) // Limit to 8 characters (MMDDYYYY)
+          .replace(/(\d{2})(\d{2})(\d{4})/, '$1-$2-$3'); // Format as MM-DD-YYYY
+        e.target.value = formattedDate;
 
-                        if (!item.mappedValue && !item.blank) {
-                            errorVal.mappedValue = "Map to is required."
-                            isErr = true
-                        }
-                        }
-                        if (!item.value) {
-                            errorVal.value = "Map from is required."
-                            isErr = true
-                        }
-                    x.push(item.value)
-                    errors[uniqueID].valueTransformation.push(errorVal)
-                })
+        // Check if the formatted date is valid
+        const isValidDate = !isNaN(Date.parse(formattedDate));
 
-                values[uniqueID] && values[uniqueID].logicalTransformation && values[uniqueID].logicalTransformation.forEach(item => {
-                    const errorLogical = {}
-                    if (!item.comparisonValue && !item.blank) {
-                         isErr = true;
-                         errorLogical.comparisonValue = "value or blank is required."
-                    }
+        if (!isValidDate) {
+          // Display an error message for an invalid date
+          this.setState({
+            dateError: true,
+            dateErrorMessage: "Invalid date format (MM-DD-YYYY)",
+          });
+          return; // Exit the function, don't update state with an invalid date
+        }
+      } else {
+        this.setState({
+          dateError: false,
+          dateErrorMessage: "", // Reset error message
+        });
+      }
 
-                      if (this.state.dateErrorforComparison == true) {
-                            let reg=/^[0-9-]+$/;
+      // Update the transformations state based on the 'key' and other logic
+      if (key === "mappedValue") {
+        transformations[uniqueID].valueTransformation[index].mappedValue =
+          e.target.value;
+      } else if (key === "thenValue") {
+        transformations[uniqueID].logicalDerivationRowsets[index].thenValue =
+          e.target.value;
+      } else if (key === "elselnd") {
+        transformations[uniqueID].elseValue = e.target.value;
+      } else if (key === "comparisonValue") {
+        transformations[uniqueID].logicalTransformation[index].comparisonValue =
+          e.target.value;
+      } else if (key === "comparisonValueDer") {
+        transformations[uniqueID].logicalDerivationRowsets[condIndex]
+          .comparisonValue = e.target.value;
+      }
 
-                            if (item.comparisonValue.split("-")[0] > 12 || item.comparisonValue.split("-")[1] > 31 || item.comparisonValue.split("-")[2] < 1920 || item.comparisonValue.split("-")[2] > 9999) {
-                                       errorLogical.comparisonValue = "Invalid Date."
-                                        isErr = true
-                                  }
-                            if(!reg.test(item.comparisonValue) && item.comparisonValue)
-                                 {
-                                    errorLogical.comparisonValue = "Invalid Date."
-                                    isErr = true
-                                 }
+      // Rest of your code for handling date changes and updating state...
 
-                     }
-                    if (!item.comparisonFileColumnTargetValueID || item.comparisonFileColumnTargetValueID ==="") {
-                            isErr = true;
-                            errorLogical.comparisonFileColumnTargetValueID = "Target is required."
-                        }
-                    if (!item.logicOperator) {
-                            isErr = true;
-                            errorLogical.logicOperator = "Condition is required."
-                        }
+      this.setState({ transformations: transformations });
+    }
+  };
 
-                        errors[uniqueID].logicalTransformation.push(errorLogical)
-                })
-                values[uniqueID] && values[uniqueID].logicalDerivationRowsets && values[uniqueID].logicalDerivationRowsets.forEach(item => {
-                 const errorDeriveCondition = {logicalDerivationConditions : []}
+  render() {
+    return (
+      <div>
+        <input
+          type="text"
+          onChange={(e) =>
+            this.handleDateChange(e, index, uniqueID, key, condIndex)
+          }
+        />
+        {this.state.dateError && (
+          <div style={{ color: "red" }}>
+            {this.state.dateErrorMessage}
+          </div>
+        )}
+        {/* Rest of your component's rendering */}
+      </div>
+    );
+  }
+}
 
-                    item.logicalDerivationConditions.forEach((conItem) =>{
-                   let errorCon={}
-                   if (!conItem.comparisonValue && !conItem.blankInd) {
-                         isErr = true;
-                         errorCon.comparisonValue = "value or blank is required."
-                     }
-                    if (this.state.dateErrorforComparisonDer == true) {
-                      let reg=/^[0-9-]+$/;
-
-                      if (conItem.comparisonValue.split("-")[0] > 12 || conItem.comparisonValue.split("-")[1] > 31 || conItem.comparisonValue.split("-")[2] < 1920 || conItem.comparisonValue.split("-")[2] > 9999) {
-                         errorCon.comparisonValue = "Invalid Date."
-                         isErr = true
-                         }
-                      if(!reg.test(conItem.comparisonValue) && conItem.comparisonValue)
-                         {
-                           errorCon.comparisonValue = "Invalid Date."
-                           isErr = true
-                         }
-
-                      }
-                     if (!conItem.comparisonFileColumnTargetValueID || conItem.comparisonFileColumnTargetValueID ==="") {
-                                   isErr = true;
-                                   errorCon.comparisonFileColumnTargetValueID = "Target is required."
-                                   }
-                                   if (!conItem.logicalOperator) {
-                                    isErr = true;
-                                    errorCon.logicalOperator = "Condition is required."
-                                    }
-                                    errorDeriveCondition.logicalDerivationConditions.push(errorCon)
-                    })
-                    if(!item.thenValue && !item.blankInd) {
-                        isErr = true;
-                        errorDeriveCondition.thenValue = "value or blank is required."
-                     }
-                    if (this.state.dateErrorforThen == true) {
-                          let reg=/^[0-9-]+$/;
-
-                          if (item.thenValue.split("-")[0] > 12 || item.thenValue.split("-")[1] > 31 || item.thenValue.split("-")[2] < 1920 || item.thenValue.split("-")[2] > 9999) {
-                             errorDeriveCondition.thenValue = "Invalid Date."
-                             isErr = true
-                             }
-                          if(!reg.test(item.thenValue) && item.thenValue)
-                             {
-                               errorDeriveCondition.thenValue = "Invalid Date."
-                               isErr = true
-                             }
-
-                          }
-
-                          errors[uniqueID].logicalDerivationRowsets.push(errorDeriveCondition)
-                })
-
-                let errorLogicalRelation = ""
-
-                if( values[uniqueID] && values[uniqueID].logicalTransformation.length > 1 && values[uniqueID].logicalRelation == null){
-                    isErr = true;
-
-                    errorLogicalRelation = "Condition is required"
-                    errors[uniqueID].logicalRelation = errorLogicalRelation
-                    {<p> errorLogicalRelation</p>}
-
-                }
-            }
-        })
-
-        this.setState({isError: isErr})
-        return errors;
- }
+export default YourComponent;
+ 
