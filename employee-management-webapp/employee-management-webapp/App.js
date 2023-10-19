@@ -1,295 +1,280 @@
+import FileAttributeOrder from "../../types/enums/FileAttributeOrder";
+import SpecialRowType from "../../types/enums/SpecialRowType";
+import FileType from "../../types/enums/FileType";
 
-import React from "react";
-import { Input, Icon, Select, Col, Row } from "antd";
-
-const { Option } = Select;
-
-const LogicalTransformations = (props) => {
-  const {
-    index,
-    item,
-    handleChange,
-    handleChangeSelect,
-    getDisabled,
-    uniqueID,
-    targetValue,
-    hardcoded,
-    validations,
-    remove,
-    getBlankCheck,
-    editing,
-    isRestrict,
-    logicalEnumOptions,
-    logicalIndex,
-    logicalDate,
-    logicalBoolean,
-    logicalTransformBoolean,
-    fileColumnProperties,
-    checkTargets,
-    mappedTargets,
-    handleKey
-  } = props;
-
-  return (
-    <div>
-      <Row style={{ marginBottom: 10 }}>
-        <Col span={8}>
-          <span>IF</span>
-          <Select
-            showSearch
-            allowClear
-            style={{ width: 180 }}
-            optionFilterProp="children"
-            disabled={
-              getDisabled(
-                item.comparisonFileColumnTargetValueID,
-                item.blank,
-                hardcoded,
-                "targetValue"
-              ) || !editing
+export const getFilesAttributePresentInFileValueList = (form, props) => {
+    const filesAttributeValues = []
+    props.fileAttributes.forEach((attribute, index) => {
+      const attributeId = attribute.name.toLowerCase().replace(/ /g, "_")
+      const fieldDecoratorID = `attribute_${attributeId}`;
+      if (form.getFieldValue(attributeId) === FileAttributeOrder.PRESENT_IN_FILE) {
+        filesAttributeValues.push({
+          "columnName": attribute.name,
+          "startPosition": form.getFieldValue(`${fieldDecoratorID}_start`),
+          "sequence": index,
+           "sequenceOverride": index,
+          "required": true,
+          "notMapped": false,
+          "segmentLength": form.getFieldValue(`${fieldDecoratorID}_length`),
+          "fileColumnProperties": [
+            {
+              "targetValueID": attribute.targetValueID
             }
-            name={`LogicalTransformation.[${index}].comparisonFileColumnTargetValueID`}
-            onChange={(event) => {
-              handleChangeSelect(event, index, uniqueID, "targetValue");
-            }}
-            value={
-              item.comparisonFileColumnTargetValueID
-                ? item.comparisonFileColumnTargetValueID
-                : fileColumnProperties.logicalTransformation &&
-                  fileColumnProperties.logicalTransformation[index]
-                    .comparisonFileColumnTargetValueID
+          ]
+        })
+      }
+
+    });
+    return filesAttributeValues
+  }
+ export const formatColumns = (type: string, columns: any): Array<Partial<FixedLengthFileSegment | DelimitedFileColumn>> => {
+
+     return columns.map(
+         (row: any, index: number) => {
+           let fileColumn = {
+             sequence: row.sequence,
+             afterColumnIndex: row.afterColumnIndex,
+             notMapped: row.notMapped,
+             required: row.required,
+             notes: row.notes,
+             columnName: row.columnName,
+             fileColumnProperties: row.fileColumnProperties,
+           };
+           if (type === FileType.DELIMITED) {
+             fileColumn = fileColumn as DelimitedFileColumn;
+           } else if (type === FileType.FIXED_WIDTH) {
+             fileColumn = {
+               ...fileColumn,
+               segmentLength: row.segmentLength,
+             } as FixedLengthFileSegment;
+           }
+           return fileColumn;
+         },
+     );
+   };
+export const   getAttributeValueList = (attributeValuesList, form, map, removeMigrationIndicator:boolean, props) => {
+                 props.fileAttributes.forEach((attribute) => {
+                   const attributeId = attribute.name.toLowerCase().replace(/ /g, "_")
+                   const fieldDecoratorID = `attribute_${attributeId}`;
+                   if (attribute.name === 'Migration Indicator') {
+                     return
+                   }
+                   if(FileAttributeOrder.HARDCODED_VALUES === form.getFieldValue(attributeId)){
+                   if (form.getFieldValue(fieldDecoratorID)) {
+                     if (fieldDecoratorID === "attribute_file_date") {
+                       const value = form.getFieldValue("attribute_file_date") === "RECEIVED_DATE"
+                           ? form.getFieldValue("attribute_file_date")
+                           : form.getFieldValue("attribute_file_date_value") && form.getFieldValue("attribute_file_date_value").format("YYYY-MM-DD");
+                       const attributeValue: AttributeValue = {
+                         fileMapID: map.fileMapID,
+                         targetValueID: attribute.targetValueID,
+                         value,
+                       };
+                       attributeValuesList.push(attributeValue);
+                     } else {
+                       const attributeValue: AttributeValue = {
+                         fileMapID: map.fileMapID,
+                         targetValueID: attribute.targetValueID,
+                         value: form.getFieldValue(fieldDecoratorID),
+                       };
+                       attributeValuesList.push(attributeValue);
+                     }
+                     }
+                   }
+                 });
+                 if (form.getFieldValue("migrationInd") != null && !removeMigrationIndicator) {
+                   const attributeValue: AttributeValue = {
+                     fileMapID: map.fileMapID,
+                     targetValueID: 1883,
+                     value: form.getFieldValue("migrationInd"),
+                   };
+                   attributeValuesList.push(attributeValue);
+                 }
+
+                 if (form.getFieldValue("preprocessorVersion") != null ) {
+                   const attributeValue1: AttributeValue = {
+                     fileMapID: map.fileMapID,
+                     targetValueID: 1916,
+                     value: form.getFieldValue("preprocessorVersion"),
+                   };
+                   attributeValuesList.push(attributeValue1);
+                 }
+
+                 if (form.getFieldValue("enablePreProcessor") != null) {
+                   const attributeValue2: AttributeValue = {
+                     fileMapID: map.fileMapID,
+                     targetValueID: 1917,
+                     value: form.getFieldValue("enablePreProcessor"),
+                   };
+                   attributeValuesList.push(attributeValue2);
+
+                 }
+                 return attributeValuesList;
+
+};
+export const formatFileMapAsMultipart = (form: any, fileMap: Partial<FileMap>, includeHeader: boolean): FormData => {
+    const formData: FormData = new FormData();
+    const fileMapParams = JSON.stringify(fileMap);
+    const fileMapBlob: Blob = new Blob([fileMapParams], {
+      type: "application/json",
+    });
+    formData.append("fileMapParams", fileMapBlob);
+    if (form.getFieldValue("headerRadio") === "Yes") {
+      const headerParams = JSON.stringify({
+        rowNumber: form.getFieldValue("headerRowNum"),
+      });
+      if (includeHeader) {
+        const headerBlob: Blob = new Blob([headerParams], {
+          type: "application/json",
+        });
+        formData.append("headerFile", form.getFieldValue("uploadHeader")[0].originFileObj);
+        formData.append("headerParams", headerBlob);
+      }
+    }
+    return formData;
+  };
+  export const   getDelimitedAttributePresentInFileValueList = (form, props) => {
+              const delimitedValues = []
+              props.fileAttributes.forEach((attribute) => {
+                const attributeId = attribute.name.toLowerCase().replace(/ /g, "_")
+                const fieldDecoratorID = `attribute_${attributeId}`;
+                if (form.getFieldValue(attributeId) === FileAttributeOrder.PRESENT_IN_FILE) {
+                  delimitedValues.push({
+                    "columnName": attribute.name,
+                    "fileMapID": attribute.fileMapID,
+                    "sequence": form.getFieldValue(fieldDecoratorID)-1,
+                    "sequenceOverride": form.getFieldValue(fieldDecoratorID)-1,
+                    "location": form.getFieldValue(fieldDecoratorID),
+                    "required": true,
+                    "notMapped": false,
+                    "fileColumnProperties": [
+                      {
+                        "targetValueID": attribute.targetValueID
+                      }
+                    ]
+                  })
+                }
+
+              });
+              return delimitedValues
             }
-          >
-            {checkTargets(mappedTargets).map((target, i) => (
-              <Option value={target.comparisonFileColumnTargetValueID} key={i}>
-                {target.columnName + "-" + target.name}
-              </Option>
-            )}
-          </Select>
-          {validations &&
-          validations[uniqueID] &&
-          validations[uniqueID].logicalTransformation &&
-          validations[uniqueID].logicalTransformation[index] &&
-          validations[uniqueID].logicalTransformation[index]
-            .comparisonFileColumnTargetValueID ? (
-            <p style={{ color: "red", marginLeft: 15 }}>
-              {validations[uniqueID].logicalTransformation[index].comparisonFileColumnTargetValueID}
-            </p>
-          ) : null}
-        </Col>
-        {isRestrict === true ? (
-          <Col span={4}>
-            <Select
-              allowClear
-              showSearch
-              dropdownMatchSelectWidth={false}
-              style={{ width: 60 }}
-              placeholder="Condition"
-              optionFilterProp="children"
-              onChange={(event) =>
-                handleChangeSelect(event, index, uniqueID, "logicOperator")
-              }
-              disabled={
-                getDisabled(item.logicOperator, item.blank, hardcoded, "logicOperator") ||
-                !editing
-              }
-              name={`LogicalTransformation.[${index}].logicOperator`}
-              value={item.logicOperator}
-            >
-              <Option value="=" title="Equal to">
-                {"="}
-              </Option>
-              <Option value="<>" title="Not Equal to">
-                {"<>"}
-              </Option>
-            </Select>
-            {validations &&
-            validations[uniqueID] &&
-            validations[uniqueID].logicalTransformation &&
-            validations[uniqueID].logicalTransformation[index] &&
-            validations[uniqueID].logicalTransformation[index].logicOperator ? (
-              <p style={{ color: "red" }}>
-                {validations[uniqueID].logicalTransformation[index].logicOperator}
-              </p>
-            ) : null}
-          </Col>
-        ) : (
-          <Col span={4}>
-            <Select
-              allowClear
-              showSearch
-              dropdownMatchSelectWidth={false}
-              style={{ width: 60 }}
-              placeholder="Condition"
-              optionFilterProp="children"
-              onChange={(event) =>
-                handleChangeSelect(event, index, uniqueID, "logicOperator")
-              }
-              disabled={
-                getDisabled(item.logicOperator, item.blank, hardcoded, "logicOperator") ||
-                !editing
-              }
-              name={`LogicalTransformation.[${index}].logicOperator`}
-              value={item.logicOperator}
-            >
-              <Option value="=" title="Equal to">
-                {"="}
-              </Option>
-              <Option value="<" title="Smaller than">
-                {"<"}
-              </Option>
-              <Option value=">" title="Greater than">
-                {">"}
-              </Option>
-              <Option value="<>" title="Not Equal to">
-                {"<>"}
-              </Option>
-            </Select>
-            {validations &&
-            validations[uniqueID] &&
-            validations[uniqueID].logicalTransformation &&
-            validations[uniqueID].logicalTransformation[index] &&
-            validations[uniqueID].logicalTransformation[index].logicOperator ? (
-              <p style={{ color: "red" }}>
-                {validations[uniqueID].logicalTransformation[index].logicOperator}
-              </p>
-            ) : null}
-          </Col>
-        )}
-        {logicalEnumOptions && logicalEnumOptions.length > 0 && logicalIndex === index ? (
-          <Col span={7}>
-            <Select
-              allowClear
-              showSearch
-              dropdownMatchSelectWidth={false}
-              style={{ width: 180 }}
-              placeholder="value"
-              optionFilterProp="children"
-              disabled={
-                getDisabled(item.comparisonValue, item.blank, hardcoded, "comparisonValue") ||
-                !editing
-              }
-              name={`logicalTransformation.[${index}].comparisonValue`}
-              onChange={(e) => handleChangeSelect(e, index, uniqueID, "comparisonValue")}
-              onFocus={(e) => handleChangeSelect(e, index, uniqueID, "comparisonValue")}
-              value={item.comparisonValue}
-            >
-              {logicalEnumOptions?.map((enumOption) => (
-                <Option value={enumOption}>{enumOption}</Option>
-              ))}
-            </Select>
-            {validations &&
-            validations[uniqueID] &&
-            validations[uniqueID].logicalTransformation &&
-            validations[uniqueID].logicalTransformation[index] &&
-            validations[uniqueID].logicalTransformation[index].comparisonValue ? (
-              <p style={{ color: "red", marginLeft: 15 }}>
-                {validations[uniqueID].logicalTransformation[index].comparisonValue}
-              </p>
-            ) : null}
-          </Col>
-        ) : logicalBoolean && logicalIndex === index ? (
-          <Col span={7}>
-            <Select
-              allowClear
-              showSearch
-              dropdownMatchSelectWidth={false}
-              style={{ width: 180 }}
-              placeholder="value"
-              optionFilterProp="children"
-              disabled={
-                getDisabled(item.comparisonValue, item.blank, hardcoded, "comparisonValue") ||
-                !editing
-              }
-              name={`logicalTransformation.[${index}].comparisonValue`}
-              onChange={(e) => handleChangeSelect(e, index, uniqueID, "comparisonValue")}
-              onFocus={(e) => handleChangeSelect(e, index, uniqueID, "comparisonValue")}
-              value={item.comparisonValue}
-            >
-              <Option value="1">True</Option>
-              <Option value="0">False</Option>
-            </Select>
-            {validations &&
-            validations[uniqueID] &&
-            validations[uniqueID].logicalTransformation &&
-            validations[uniqueID].logicalTransformation[index] &&
-            validations[uniqueID].logicalTransformation[index].comparisonValue ? (
-              <p style={{ color: "red", marginLeft: 15 }}>
-                {validations[uniqueID].logicalTransformation[index].comparisonValue}
-              </p>
-            ) : null}
-          </Col>
-        ) : logicalDate && logicalIndex === index ? (
-          <Col span={7}>
-            <Input
-              type="text"
-              style={{ width: 155 }}
-              placeholder="Enter valid date"
-              onKeyUp={(e) => handleKey(e, index, uniqueID, "comparisonForLogical")}
-              onChange={(e) => handleChange(e, index, uniqueID, "comparisonValue")}
-              value={item.comparisonValue}
-              disabled={
-                getDisabled(item.comparisonValue, item.blank, hardcoded, "comparisonValue") ||
-                !editing
-              }
-              name={`logicalTransformation.[${index}].comparisonValue`}
-            />
-            {validations?.[uniqueID]?.logicalTransformation?.[index]?.comparisonValue ? (
-              <p style={{
-                color: "red",
-                marginLeft: 15
-              }}>{validations?.[uniqueID]?.logicalTransformation?.[index]?.comparisonValue}</p>
-            ) : null}
-          </Col>
-        ) : (
-          <Col span={7}>
-            <Input
-              type="text"
-              name={`logicalTransformation.[${index}].comparisonValue`}
-              style={{ width: 155 }}
-              placeholder="value"
-              onChange={(e) => handleChange(e, index, uniqueID, "comparisonValue")}
-              onFocus={(e) => handleChange(e, index, uniqueID, "comparisonValue")}
-              value={
-                item.comparisonValue == 1 && logicalTransformBoolean.includes(item.comparisonFileColumnTargetValueID)
-                  ? "True"
-                  : item.comparisonValue == null && item.comparisonValue == ""
-                  ? null
-                  : item.comparisonValue == 0 && item.comparisonValue != "" && logicalTransformBoolean.includes(item.comparisonFileColumnTargetValueID)
-                  ? "False"
-                  : item.comparisonValue
-              }
-              allowClear
-              disabled={
-                getDisabled(item.comparisonValue, item.blank, hardcoded, "comparisonValue") ||
-                !editing
-              }
-            />
-            {validations && validations[uniqueID] && validations[uniqueID].logicalTransformation &&
-            validations[uniqueID].logicalTransformation[index] &&
-            validations[uniqueID].logicalTransformation[index].comparisonValue ? (
-              <Col>
-                <p style={{ color: "red", marginLeft: 15 }}>
-                  {validations[uniqueID].logicalTransformation[index].comparisonValue}
-                </p>
-              </Col>
-            ) : null}
-          </Col>
-        )}
-        <Col span={5}>
-          {getBlankCheck(uniqueID, index, item, "logical")}
-          {editing ? (
-            <Icon
-              className="dynamic-delete-button"
-              type="minus-circle-o"
-              style={{ marginLeft: 5, marginTop: 10 }}
-              onClick={() => remove(index, uniqueID, "logical")}
-            />
-          ) : null}
-        </Col>
-      </Row>
-    </div>
-  );
+  export const  getMapColumnsFromAttributesOrderedList = (newMap: Partial<FileMap>, addMigrationIndicatorInSpecialRow: boolean, specialRowID, props) => {
+                   const { form } = props;
+                   let specialRow: SpecialRow = {
+                     fixedLengthFileSegments: [],
+                     delimitedFileColumns: [],
+                     type: SpecialRowType.ATTRIBUTE,
+                     fileMapID: newMap.fileMapID ? newMap.fileMapID : null,
+                     specialRowID: specialRowID
+                   };
+                   const fileAttributesPresent = form.getFieldValue("order") !== undefined && form.getFieldValue("order") !== FileAttributeOrder.NONE;
+                   if (form.getFieldValue("attributesOrder")?.orderedList == null && fileAttributesPresent) {
+                     form.setFieldsValue({ attributesOrder: { orderedList: this.props.fileAttributes, ignoredList: [] } });
+                   }
+                   // Adds a note to the migration indicator attribute column of it's value "TRUE" or "FALSE"
+                   // We'll use the note field as a value field to encode the value it should be w/o using the HardcodedValue field
+                   // mark not mapped so the parser doesn't try to parse it
+
+                   const addEnablePreProcessor = form.getFieldValue("enablePreProcessor") !==null;
+                   const addPreProcessorVersion = form.getFieldValue("preprocessorVersion") !==null;
+
+                   // manually set migration indicator
+                   const mapColumn: Partial<DelimitedFileColumn | FixedLengthFileSegment> = {};
+                   const mapColumn1: Partial<DelimitedFileColumn | FixedLengthFileSegment> = {};
+                   const mapColumn2: Partial<DelimitedFileColumn | FixedLengthFileSegment> = {};
+
+                   if(addMigrationIndicatorInSpecialRow){
+                     mapColumn.columnName = "Migration Indicator";
+                     mapColumn.fileMapID = newMap.fileMapID;
+                     mapColumn.sequence = 4; // set to length of list
+                     mapColumn.sequenceOverride = mapColumn.sequence;
+                     mapColumn.required = false;
+                     mapColumn.notMapped = true; // never map Migration Indicator
+                     mapColumn.notes = form.getFieldValue("migrationInd"); // check box ID
+                     mapColumn.fileColumnProperties = [{
+                       targetValueID: 1883,
+                     }];
+                  }
+
+                   if(addPreProcessorVersion){
+                     mapColumn1.columnName = "Preprocessor Version";
+                     mapColumn1.fileMapID = null;
+                     mapColumn1.sequence = 6 // set to length of list
+                     mapColumn1.sequenceOverride = mapColumn1.sequence;
+                     mapColumn1.required = false;
+                     mapColumn1.notMapped = true; // never map Migration Indicator
+                     mapColumn1.notes = form.getFieldValue("preprocessorVersion"); // check box ID
+                     mapColumn1.fileColumnProperties = [{
+                       targetValueID: 1916,
+                     }];
+                   }
+
+                   if(addEnablePreProcessor){
+                     mapColumn2.columnName = "Ignore Preprocessor";
+                     mapColumn2.fileMapID = null;
+                     mapColumn2.sequence = 7 // set to length of list
+                     mapColumn2.sequenceOverride = mapColumn2.sequence;
+                     mapColumn2.required = false;
+                     mapColumn2.notMapped = true; // never map Migration Indicator
+                     mapColumn2.notes = form.getFieldValue("enablePreProcessor"); // check box ID
+                     mapColumn2.fileColumnProperties = [{
+                       targetValueID: 1917,
+                     }];
+                   }
+
+
+                   if (newMap.fileType === FileType.DELIMITED) {
+                     if(addMigrationIndicatorInSpecialRow){
+                       specialRow.delimitedFileColumns.push(mapColumn)
+                     }
+                     const delimitedAttributes: Partial<DelimitedFileColumn>[] = getDelimitedAttributePresentInFileValueList(form, props)
+                     specialRow.delimitedFileColumns.push(...delimitedAttributes);
+                   }
+                   else if (newMap.fileType === FileType.FIXED_WIDTH) {
+                     if(addMigrationIndicatorInSpecialRow){
+                       specialRow.fixedLengthFileSegments.push(mapColumn)
+                     }
+                     if(addPreProcessorVersion){
+                       specialRow.fixedLengthFileSegments.push(mapColumn1)
+                     }
+                     if(addEnablePreProcessor){
+                       specialRow.fixedLengthFileSegments.push(mapColumn2)
+                     }
+                     const filesAttributes: Partial<FixedLengthFileSegment>[] = getFilesAttributePresentInFileValueList(form, props)
+                     specialRow.fixedLengthFileSegments.push(...filesAttributes);
+
+                   }
+
+                   // loop through all the other values (non-migration indicator) and set them
+                   form.getFieldValue("attributesOrder")?.orderedList.forEach((target: TargetDetails, index: number) => {
+                     if (newMap.fileType === FileType.DELIMITED && target.name !== "Migration Indicator") {
+                       const mapColumn: Partial<DelimitedFileColumn> = {};
+                       mapColumn.columnName = target.name;
+                       mapColumn.fileMapID = newMap.fileMapID;
+                       mapColumn.sequence = index;
+                       mapColumn.sequenceOverride = mapColumn.sequence;
+                       mapColumn.required = true;
+                       mapColumn.notMapped = false;
+                       mapColumn.fileColumnProperties = [{
+                         targetValueID: target.targetValueID,
+                       }];
+                       specialRow.delimitedFileColumns.push(mapColumn);
+                     } else if (newMap.fileType === FileType.FIXED_WIDTH && target.name !== "Migration Indicator") {
+                       const mapColumn: Partial<FixedLengthFileSegment> = {};
+                       mapColumn.fileMapID = newMap.fileMapID;
+                       mapColumn.columnName = target.name;
+                       mapColumn.sequence = index;
+                       mapColumn.sequenceOverride = mapColumn.sequence;
+                       mapColumn.required = true;
+                       mapColumn.notMapped = false;
+                       mapColumn.segmentLength = form.getFieldValue(`segmentLength_${target.name.replace(/ /g, "_")}`);
+                       mapColumn.fileColumnProperties = [{
+                         targetValueID: target.targetValueID,
+                       }];
+                       specialRow.fixedLengthFileSegments.push(mapColumn);
+                     }
+                   });
+                   return new Array<SpecialRow>(specialRow);
 };
 
-export default LogicalTransformations;
+
