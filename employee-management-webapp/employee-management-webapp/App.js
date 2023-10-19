@@ -1,280 +1,502 @@
-import FileAttributeOrder from "../../types/enums/FileAttributeOrder";
-import SpecialRowType from "../../types/enums/SpecialRowType";
-import FileType from "../../types/enums/FileType";
+/* eslint-disable max-classes-per-file */
+import React from "react";
+import {
+    Table, Icon, Popconfirm, Menu, Dropdown, Button, Modal, Input, notification
+} from "antd";
+import {DndProvider} from "react-dnd";
+import {HTML5Backend} from "react-dnd-html5-backend";
+import {EditableColumnProps} from "antd-editable-component/cell";
+import styled from "styled-components";
+import {connect} from "react-redux";
+import {isEqual} from "lodash";
+import {DraggableBodyRow, EditableCell,} from "./DraggableTable";
+import {DelimitedFileColumn, FixedLengthFileSegment} from "../../../types";
+import MapColumn from "../../../types/map/children/MapColumn";
+import FileType from "../../../types/enums/FileType";
+import TargetDetails from "../../../types/map/children/TargetDetails";
+import FileColumnProperty from "../../../types/map/children/FileColumnProperty";
+import {Link} from "react-router-dom";
+import {sign} from "crypto";
+const { confirm } = Modal;
 
-export const getFilesAttributePresentInFileValueList = (form, props) => {
-    const filesAttributeValues = []
-    props.fileAttributes.forEach((attribute, index) => {
-      const attributeId = attribute.name.toLowerCase().replace(/ /g, "_")
-      const fieldDecoratorID = `attribute_${attributeId}`;
-      if (form.getFieldValue(attributeId) === FileAttributeOrder.PRESENT_IN_FILE) {
-        filesAttributeValues.push({
-          "columnName": attribute.name,
-          "startPosition": form.getFieldValue(`${fieldDecoratorID}_start`),
-          "sequence": index,
-           "sequenceOverride": index,
-          "required": true,
-          "notMapped": false,
-          "segmentLength": form.getFieldValue(`${fieldDecoratorID}_length`),
-          "fileColumnProperties": [
-            {
-              "targetValueID": attribute.targetValueID
-            }
-          ]
-        })
-      }
 
-    });
-    return filesAttributeValues
+interface MapDetailsRow extends MapColumn {
+    key: number,
+}
+
+class TypedTable extends Table<MapDetailsRow> {
+}
+
+const StyledTable = styled(TypedTable)`
+   .ant-table-tbody{
+    background-color: white;
   }
- export const formatColumns = (type: string, columns: any): Array<Partial<FixedLengthFileSegment | DelimitedFileColumn>> => {
+  .ant-table-thead{
+    position:sticky;
+    top:0;
+    z-index:9;
+  }
+  tr.drop-over-downward td {
+    border-bottom: 2px dashed #1890ff;
+  }
 
-     return columns.map(
-         (row: any, index: number) => {
-           let fileColumn = {
-             sequence: row.sequence,
-             afterColumnIndex: row.afterColumnIndex,
-             notMapped: row.notMapped,
-             required: row.required,
-             notes: row.notes,
-             columnName: row.columnName,
-             fileColumnProperties: row.fileColumnProperties,
-           };
-           if (type === FileType.DELIMITED) {
-             fileColumn = fileColumn as DelimitedFileColumn;
-           } else if (type === FileType.FIXED_WIDTH) {
-             fileColumn = {
-               ...fileColumn,
-               segmentLength: row.segmentLength,
-             } as FixedLengthFileSegment;
-           }
-           return fileColumn;
-         },
-     );
-   };
-export const   getAttributeValueList = (attributeValuesList, form, map, removeMigrationIndicator:boolean, props) => {
-                 props.fileAttributes.forEach((attribute) => {
-                   const attributeId = attribute.name.toLowerCase().replace(/ /g, "_")
-                   const fieldDecoratorID = `attribute_${attributeId}`;
-                   if (attribute.name === 'Migration Indicator') {
-                     return
-                   }
-                   if(FileAttributeOrder.HARDCODED_VALUES === form.getFieldValue(attributeId)){
-                   if (form.getFieldValue(fieldDecoratorID)) {
-                     if (fieldDecoratorID === "attribute_file_date") {
-                       const value = form.getFieldValue("attribute_file_date") === "RECEIVED_DATE"
-                           ? form.getFieldValue("attribute_file_date")
-                           : form.getFieldValue("attribute_file_date_value") && form.getFieldValue("attribute_file_date_value").format("YYYY-MM-DD");
-                       const attributeValue: AttributeValue = {
-                         fileMapID: map.fileMapID,
-                         targetValueID: attribute.targetValueID,
-                         value,
-                       };
-                       attributeValuesList.push(attributeValue);
-                     } else {
-                       const attributeValue: AttributeValue = {
-                         fileMapID: map.fileMapID,
-                         targetValueID: attribute.targetValueID,
-                         value: form.getFieldValue(fieldDecoratorID),
-                       };
-                       attributeValuesList.push(attributeValue);
-                     }
-                     }
-                   }
-                 });
-                 if (form.getFieldValue("migrationInd") != null && !removeMigrationIndicator) {
-                   const attributeValue: AttributeValue = {
-                     fileMapID: map.fileMapID,
-                     targetValueID: 1883,
-                     value: form.getFieldValue("migrationInd"),
-                   };
-                   attributeValuesList.push(attributeValue);
-                 }
+  tr.drop-over-upward td {
+    border-top: 2px dashed #1890ff;
+  }
+`;
 
-                 if (form.getFieldValue("preprocessorVersion") != null ) {
-                   const attributeValue1: AttributeValue = {
-                     fileMapID: map.fileMapID,
-                     targetValueID: 1916,
-                     value: form.getFieldValue("preprocessorVersion"),
-                   };
-                   attributeValuesList.push(attributeValue1);
-                 }
+interface EditableTableState {
+    dataSource: Array<MapDetailsRow>,
+    selectedTargets: Array<number>,
+    pageNumber:number,
+}
 
-                 if (form.getFieldValue("enablePreProcessor") != null) {
-                   const attributeValue2: AttributeValue = {
-                     fileMapID: map.fileMapID,
-                     targetValueID: 1917,
-                     value: form.getFieldValue("enablePreProcessor"),
-                   };
-                   attributeValuesList.push(attributeValue2);
+interface EditableTableStateProps {
+    targets: TargetDetails[]
+}
 
-                 }
-                 return attributeValuesList;
+interface EditableTableOwnProps {
+    mode: string,
+    dataSource?: Array<DelimitedFileColumn | FixedLengthFileSegment>,
+    updateTable: (rows: Array<DelimitedFileColumn | FixedLengthFileSegment>) => void,
+    deletable: boolean,
+    addable: boolean,
+    mapType: string,
+}
 
-};
-export const formatFileMapAsMultipart = (form: any, fileMap: Partial<FileMap>, includeHeader: boolean): FormData => {
-    const formData: FormData = new FormData();
-    const fileMapParams = JSON.stringify(fileMap);
-    const fileMapBlob: Blob = new Blob([fileMapParams], {
-      type: "application/json",
-    });
-    formData.append("fileMapParams", fileMapBlob);
-    if (form.getFieldValue("headerRadio") === "Yes") {
-      const headerParams = JSON.stringify({
-        rowNumber: form.getFieldValue("headerRowNum"),
-      });
-      if (includeHeader) {
-        const headerBlob: Blob = new Blob([headerParams], {
-          type: "application/json",
-        });
-        formData.append("headerFile", form.getFieldValue("uploadHeader")[0].originFileObj);
-        formData.append("headerParams", headerBlob);
-      }
+type EditableTableProps = EditableTableOwnProps & EditableTableStateProps;
+
+class EditableTable extends React.Component<EditableTableProps, EditableTableState> {
+    components = {
+        body: {
+            row: DraggableBodyRow,
+            cell: EditableCell,
+        },
+    };
+
+    tableTracker: Array<MapDetailsRow>;
+
+    columns: EditableColumnProps<MapDetailsRow>[];
+
+    constructor(props: EditableTableProps) {
+        super(props);
+
+        this.columns = [
+            {
+                title: "Row",
+                dataIndex: "column",
+                editable: true,
+            },
+
+            {
+                title: "Not Mapped",
+                dataIndex: "notMapped",
+                editable: true,
+            },
+            {
+                title: "Source Name",
+                dataIndex: "columnName",
+                editable: true,
+            },
+            {
+                title: "Target Name",
+                dataIndex: "targetValueKeys",
+                editable: true,
+            },
+            {
+                title: "Value Transformation",
+                dataIndex: "columnValues",
+                editable: true,
+            },
+            {
+                title: "Processing Order",
+                dataIndex: "sequenceOverride",
+                editable: true,
+             },
+             {
+                title: "Processing Order No.",
+                dataIndex: "sequenceOverrideNo",
+                editable: true,
+             },
+            {
+                title: "Notes",
+                dataIndex: "notes",
+                editable: true,
+            },
+        ];
+
+        this.state = {
+            dataSource: [],
+            selectedTargets: [],
+            pageNumber:1,
+            removeProcess: false
+        };
+        this.tableTracker = [];
     }
-    return formData;
-  };
-  export const   getDelimitedAttributePresentInFileValueList = (form, props) => {
-              const delimitedValues = []
-              props.fileAttributes.forEach((attribute) => {
-                const attributeId = attribute.name.toLowerCase().replace(/ /g, "_")
-                const fieldDecoratorID = `attribute_${attributeId}`;
-                if (form.getFieldValue(attributeId) === FileAttributeOrder.PRESENT_IN_FILE) {
-                  delimitedValues.push({
-                    "columnName": attribute.name,
-                    "fileMapID": attribute.fileMapID,
-                    "sequence": form.getFieldValue(fieldDecoratorID)-1,
-                    "sequenceOverride": form.getFieldValue(fieldDecoratorID)-1,
-                    "location": form.getFieldValue(fieldDecoratorID),
-                    "required": true,
-                    "notMapped": false,
-                    "fileColumnProperties": [
-                      {
-                        "targetValueID": attribute.targetValueID
-                      }
-                    ]
-                  })
-                }
 
-              });
-              return delimitedValues
+    componentDidMount() {
+        const {dataSource} = this.props;
+        if (dataSource) {
+            // get all the selected targets
+            const selectedTargets = dataSource.filter((col) => col.fileColumnProperties.length > 0).flatMap((col) => col?.fileColumnProperties.map((property) => property.targetValueID));
+
+            const tableRows: MapDetailsRow[] = dataSource.map((mapColumn: DelimitedFileColumn | FixedLengthFileSegment, index) => ({
+                ...mapColumn,
+                key: index,
+                targetValueKeys: this.convertTargetIDToKey(mapColumn.fileColumnProperties),
+            }));
+            // Arrange in sequence.
+            tableRows.sort((a, b) => ((a.sequence > b.sequence) ? 1 : -1));
+            this.setState({dataSource: tableRows, selectedTargets});
+            this.tableTracker = tableRows;
+        }
+    }
+
+    componentDidUpdate(prevProps: EditableTableProps, prevState: EditableTableState) {
+        const {dataSource, targets} = this.props;
+        if (dataSource && ((prevProps.targets.length !== targets.length) || (JSON.stringify(prevProps.dataSource) !== JSON.stringify(dataSource)))) {
+            const tableRows: MapDetailsRow[] = dataSource.map((mapColumn: DelimitedFileColumn | FixedLengthFileSegment, index) => ({
+                ...mapColumn,
+                key: index,
+                targetValueKeys: this.convertTargetIDToKey(mapColumn.fileColumnProperties),
+            }));
+            tableRows.sort((a, b) => ((a.sequence > b.sequence) ? 1 : -1));
+            this.setState({dataSource: tableRows});
+            this.tableTracker = tableRows;
+        }
+        const {dataSource: dataSourceState} = this.state;
+        if (dataSourceState && !isEqual(dataSourceState, prevState.dataSource)) {
+            const selectedTargets = dataSourceState.filter((col) => col.fileColumnProperties.length > 0).flatMap((col) => col?.fileColumnProperties.map((property) => property.targetValueID));
+            this.setState({selectedTargets});
+
+        }
+    }
+
+    convertTargetIDToKey = (colProps: FileColumnProperty[]) => {
+        const {targets} = this.props;
+        const unique = new Set();
+        return colProps?.map((colProp) => {
+            const found = targets.find((target) => target.targetValueID === colProp.targetValueID);
+            if (!unique.has(found?.selectKey)) {
+                unique.add(found?.selectKey);
+                return found?.selectKey;
             }
-  export const  getMapColumnsFromAttributesOrderedList = (newMap: Partial<FileMap>, addMigrationIndicatorInSpecialRow: boolean, specialRowID, props) => {
-                   const { form } = props;
-                   let specialRow: SpecialRow = {
-                     fixedLengthFileSegments: [],
-                     delimitedFileColumns: [],
-                     type: SpecialRowType.ATTRIBUTE,
-                     fileMapID: newMap.fileMapID ? newMap.fileMapID : null,
-                     specialRowID: specialRowID
-                   };
-                   const fileAttributesPresent = form.getFieldValue("order") !== undefined && form.getFieldValue("order") !== FileAttributeOrder.NONE;
-                   if (form.getFieldValue("attributesOrder")?.orderedList == null && fileAttributesPresent) {
-                     form.setFieldsValue({ attributesOrder: { orderedList: this.props.fileAttributes, ignoredList: [] } });
-                   }
-                   // Adds a note to the migration indicator attribute column of it's value "TRUE" or "FALSE"
-                   // We'll use the note field as a value field to encode the value it should be w/o using the HardcodedValue field
-                   // mark not mapped so the parser doesn't try to parse it
+            for (let ind = 1; ind < 999; ind += 1) {
+                const newKey = `${found?.selectKey}-${ind}`;
+                if (!unique.has(newKey)) {
+                    unique.add(newKey);
+                    return newKey;
+                }
+            }
+            return null;
+        });
+    };
 
-                   const addEnablePreProcessor = form.getFieldValue("enablePreProcessor") !==null;
-                   const addPreProcessorVersion = form.getFieldValue("preprocessorVersion") !==null;
+    handleDelete = (key: number, dataSource: any) => {
+        let comparisonId = null;
+        let isLogicalExist = false;
+        let logicalMessage = null;
+        dataSource.fileColumnProperties.map(fileProperty =>{
+            if(fileProperty.fileColumnTargetValueID != null){
+                comparisonId = fileProperty.fileColumnTargetValueID;
 
-                   // manually set migration indicator
-                   const mapColumn: Partial<DelimitedFileColumn | FixedLengthFileSegment> = {};
-                   const mapColumn1: Partial<DelimitedFileColumn | FixedLengthFileSegment> = {};
-                   const mapColumn2: Partial<DelimitedFileColumn | FixedLengthFileSegment> = {};
+                this.state.dataSource.map(datasource => {
+                    datasource.fileColumnProperties.map(fileProperty =>{
+                        if(fileProperty.logicalTransforms != null && fileProperty.logicalTransforms.length > 0){
+                            fileProperty.logicalTransforms.map(logicalColumn=>{
+                                const compareId = logicalColumn.comparisonFileColumnTargetValueID;
+                                if(compareId == comparisonId){
+                                    isLogicalExist = true;
+                                    logicalMessage = `This row can not be deleted because it is being used in some logical transformation`;
+                                }
+                            })
+                        }
+                    });
+                });
 
-                   if(addMigrationIndicatorInSpecialRow){
-                     mapColumn.columnName = "Migration Indicator";
-                     mapColumn.fileMapID = newMap.fileMapID;
-                     mapColumn.sequence = 4; // set to length of list
-                     mapColumn.sequenceOverride = mapColumn.sequence;
-                     mapColumn.required = false;
-                     mapColumn.notMapped = true; // never map Migration Indicator
-                     mapColumn.notes = form.getFieldValue("migrationInd"); // check box ID
-                     mapColumn.fileColumnProperties = [{
-                       targetValueID: 1883,
-                     }];
-                  }
+                 }
+                    });
+            if(isLogicalExist){
+                            notification.error({
+                                message: 'Error',
+                                description: `${logicalMessage}`,
+                             });
+           }
+           else
+           {
+           const newData=this.state.dataSource;
+            const removed = newData.filter((item) => item.key !== key).map((row, index) => ({
+                ...row,
+                sequence: index,
+            }));
+            this.tableTracker = removed
+            this.props.updateTable(removed)
+        this.setState({dataSource: removed})
 
-                   if(addPreProcessorVersion){
-                     mapColumn1.columnName = "Preprocessor Version";
-                     mapColumn1.fileMapID = null;
-                     mapColumn1.sequence = 6 // set to length of list
-                     mapColumn1.sequenceOverride = mapColumn1.sequence;
-                     mapColumn1.required = false;
-                     mapColumn1.notMapped = true; // never map Migration Indicator
-                     mapColumn1.notes = form.getFieldValue("preprocessorVersion"); // check box ID
-                     mapColumn1.fileColumnProperties = [{
-                       targetValueID: 1916,
-                     }];
-                   }
+            }
+    };
 
-                   if(addEnablePreProcessor){
-                     mapColumn2.columnName = "Ignore Preprocessor";
-                     mapColumn2.fileMapID = null;
-                     mapColumn2.sequence = 7 // set to length of list
-                     mapColumn2.sequenceOverride = mapColumn2.sequence;
-                     mapColumn2.required = false;
-                     mapColumn2.notMapped = true; // never map Migration Indicator
-                     mapColumn2.notes = form.getFieldValue("enablePreProcessor"); // check box ID
-                     mapColumn2.fileColumnProperties = [{
-                       targetValueID: 1917,
-                     }];
-                   }
+    handleAdd = ({key}: { key: string }) => {
+        const {dataSource} = this.state;
+        const count = dataSource.length>0?dataSource[dataSource.length - 1].key +1 :0;
+        console.log("Count : "+ count);
+        console.log("DataSource : "+ JSON.stringify(dataSource));
+        console.log("dataSource : " +dataSource.length);
+        // Determine number to add.
+        const toAdd = parseInt(key, 10);
+        const newData: MapDetailsRow = {
+            fileMapID: null,
+            required: false,
+            columnName: "",
+            notes: "",
+            notMapped: false,
+            assigned: false,
+            fileColumnProperties: [],
+            key: 0,
+            sequence: 0,
+            sequenceOverride: 0,
+        };
+
+        let newRows = new Array(toAdd).fill(newData);
+        // Set key and sequence based on position in array.
+        newRows = newRows.map((row, index) => ({
+            ...row,
+            key: count + index,
+            sequence: dataSource.length + index,
+            sequenceOverride: dataSource.length + index,
+        }));
+        const updatedRows = dataSource.concat(newRows);
+        this.setState({
+            dataSource: updatedRows,
+         });
+        this.tableTracker = updatedRows;
+        this.props.updateTable(updatedRows);
+    };
+
+    handleSave = (row: MapDetailsRow) => {
+        const newData = [...this.tableTracker];
+        const index = newData.findIndex((item) => row.key === item.key);
+        const oldRow = newData[index];
+        newData.splice(index, 1, {
+            ...oldRow,
+            ...row,
+        });
+
+     if (!isEqual(row, oldRow)) {
+        this.setState({ dataSource: newData });
+        this.tableTracker = newData;
+        this.props.updateTable(newData);
+        }
+    };
+    moveTooRow = (event: any, fromIndex: any, toIndex: any) => {
+        let moveToIndex
+        if(toIndex === 0){
+            moveToIndex = 0;
+        }
+        else if(toIndex >= this.tableTracker.length){
+            moveToIndex = this.tableTracker.length - 1;
+        }
+        else{
+            moveToIndex = toIndex - 1;
+        }
+        let arr = []
+        const arr1 = [...this.tableTracker]
+        arr = arr1.splice(fromIndex, 1)
+        arr1.splice(moveToIndex, 0, ...arr)
+        this.tableTracker = [...arr1]
+        this.setState({dataSource: this.tableTracker});
+        for (let i = 0; i < this.tableTracker.length; i++) {
+            this.tableTracker[i].sequence = i;
+            this.tableTracker[i].sequenceOverride = i;
+        }
+        this.props.updateTable(arr1);
+    }
+    updateRemoveProcess =() =>{
+    this.setState({removeProcess: false})
+    }
+    checkOverrideValues =(fromIndex: number, toIndex: number)=>{
+
+          const checkValue= (element, index, array) =>{
+          if(element.afterColumnIndex !== null ||(element.sequence !== element.sequenceOverride)){
+          return true;
+          }
+          }
+          const processAssigned= this.state.dataSource.some(checkValue)
+          if(!processAssigned ){
+          this.moveRow(fromIndex, toIndex)
+           }
+           else{
+            confirm({
+            title:"Hey, you already have some processing order. Press OK if you want to continue.",
+            content: "All processing order assignments will be removed if you change the sequence.",
+            onOk:()=>{
+            for(let i=0; i<this.tableTracker.length;i++)
+            {
+            if(this.tableTracker[i].afterColumnIndex!= null){
+            this.tableTracker[i].afterColumnIndex =null
+            }
+            }
+            this.setState({removeProcess:true})
+            this.moveRow(fromIndex,toIndex)
+            this.setState({dataSource: this.tableTracker});
+            },
+            onCancel: ()=>{
+            console.log("cancelled")
+            },
+            })
+           }
+
+    }
+    /**
+     * Moves a row from x to y, updates the rows between them, rerenders the table, updates props
+     * @param fromIndex index of the row that is being dragged
+     * @param toIndex index of where the row is dropped
+     */
+
+    moveRow = (fromIndex: number, toIndex: number) => {
+      const size=100;
+      const fromIndexUpdate= (fromIndex+((this.state.pageNumber-1)*size));
+      const toIndexUpdate= (toIndex+((this.state.pageNumber-1)*size));
+
+        const fromRow = this.tableTracker[fromIndexUpdate];
+        this.tableTracker[fromIndexUpdate].sequence = toIndexUpdate;
+        this.tableTracker[fromIndexUpdate].sequenceOverride = toIndexUpdate;
+        const sign = Math.sign(fromIndexUpdate - toIndexUpdate); // +1 or -1
+        // iterate from fromIndex to toIndex, either increment or decrement the values between tableTracker[fromIndex] and tableTracker[toIndex]
+        for (let i = fromIndexUpdate; i !== toIndexUpdate; i -= sign) {
+            this.tableTracker[i] = this.tableTracker[i - sign];
+            this.tableTracker[i].sequence = i;
+        }
+         this.tableTracker[toIndexUpdate] = fromRow;
+         for(let i=0;i<this.tableTracker.length;i++){
+            this.tableTracker[i].sequenceOverride= this.tableTracker[i].sequence
+         }
 
 
-                   if (newMap.fileType === FileType.DELIMITED) {
-                     if(addMigrationIndicatorInSpecialRow){
-                       specialRow.delimitedFileColumns.push(mapColumn)
-                     }
-                     const delimitedAttributes: Partial<DelimitedFileColumn>[] = getDelimitedAttributePresentInFileValueList(form, props)
-                     specialRow.delimitedFileColumns.push(...delimitedAttributes);
-                   }
-                   else if (newMap.fileType === FileType.FIXED_WIDTH) {
-                     if(addMigrationIndicatorInSpecialRow){
-                       specialRow.fixedLengthFileSegments.push(mapColumn)
-                     }
-                     if(addPreProcessorVersion){
-                       specialRow.fixedLengthFileSegments.push(mapColumn1)
-                     }
-                     if(addEnablePreProcessor){
-                       specialRow.fixedLengthFileSegments.push(mapColumn2)
-                     }
-                     const filesAttributes: Partial<FixedLengthFileSegment>[] = getFilesAttributePresentInFileValueList(form, props)
-                     specialRow.fixedLengthFileSegments.push(...filesAttributes);
+        // update state for rerender and update props
+        this.setState({dataSource: this.tableTracker});
+        this.props.updateTable(this.tableTracker);
+    };
 
-                   }
+    render() {
+        const {dataSource, selectedTargets} = this.state;
+        const {
+            mode, deletable, addable, mapType, targets,
+        } = this.props;
 
-                   // loop through all the other values (non-migration indicator) and set them
-                   form.getFieldValue("attributesOrder")?.orderedList.forEach((target: TargetDetails, index: number) => {
-                     if (newMap.fileType === FileType.DELIMITED && target.name !== "Migration Indicator") {
-                       const mapColumn: Partial<DelimitedFileColumn> = {};
-                       mapColumn.columnName = target.name;
-                       mapColumn.fileMapID = newMap.fileMapID;
-                       mapColumn.sequence = index;
-                       mapColumn.sequenceOverride = mapColumn.sequence;
-                       mapColumn.required = true;
-                       mapColumn.notMapped = false;
-                       mapColumn.fileColumnProperties = [{
-                         targetValueID: target.targetValueID,
-                       }];
-                       specialRow.delimitedFileColumns.push(mapColumn);
-                     } else if (newMap.fileType === FileType.FIXED_WIDTH && target.name !== "Migration Indicator") {
-                       const mapColumn: Partial<FixedLengthFileSegment> = {};
-                       mapColumn.fileMapID = newMap.fileMapID;
-                       mapColumn.columnName = target.name;
-                       mapColumn.sequence = index;
-                       mapColumn.sequenceOverride = mapColumn.sequence;
-                       mapColumn.required = true;
-                       mapColumn.notMapped = false;
-                       mapColumn.segmentLength = form.getFieldValue(`segmentLength_${target.name.replace(/ /g, "_")}`);
-                       mapColumn.fileColumnProperties = [{
-                         targetValueID: target.targetValueID,
-                       }];
-                       specialRow.fixedLengthFileSegments.push(mapColumn);
-                     }
-                   });
-                   return new Array<SpecialRow>(specialRow);
-};
+        // Adjust columns depending on the mode.
+        let columnSet = [...this.columns];
+        if (mapType === FileType.FIXED_WIDTH) {
+            // Add the segment length field onto the map if fixed.
+            columnSet.splice(5, 0, {
+                title: "Segment Length",
+                dataIndex: "segmentLength",
+                editable: true,
+            });
+        }
+        if (mode === "edit") {
+            columnSet = [{
+                title: "Sort",
+                dataIndex: "sort",
+                width: 65,
+                className: "drag-visible",
+                render: () => <Icon type="menu"/>,
+            }, ...columnSet];
+        }
 
+        if (deletable && (mode === "edit")) {
+            columnSet = [...columnSet,
+                {
+                    title: "",
+                    dataIndex: "operation",
+                    render: (_, record) => (this.state.dataSource.length >= 1 ? (
+                        <Popconfirm title="Sure to delete?" onConfirm={() => this.handleDelete(record.key,record)}>
+                            <Icon type="delete"/>
+                        </Popconfirm>
+                    ) : null),
+                }];
+        }
 
+        const columns = columnSet.map((col) => {
+            if (!col.editable) {
+                return col;
+            }
+            return {
+                ...col,
+                onCell: (record: MapDetailsRow) => ({
+                    mode,
+                    record,
+                    targets,
+                    selectedTargets,
+                    dataSource,
+                    editable: col.editable,
+                    dataIndex: col.dataIndex,
+                    title: col.title,
+                    handleSave: this.handleSave,
+                    index: record.sequence,
+                    moveTooRow: this.moveTooRow,
+                    removeProcess:this.state.removeProcess,
+                    updateRemoveProcess: this.updateRemoveProcess
+
+                }),
+            };
+        });
+        const menu = (
+            <Menu onClick={this.handleAdd}>
+                <Menu.Item key="1">Add a Row</Menu.Item>
+                <Menu.Item key="5">Add 5 Rows</Menu.Item>
+                <Menu.Item key="10">Add 10 Rows</Menu.Item>
+                <Menu.Item key="25">Add 25 Rows</Menu.Item>
+            </Menu>
+        );
+
+        const renderFooter = () => (
+            <Dropdown overlay={menu}>
+                {/* eslint-disable-next-line jsx-a11y/anchor-is-valid, jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+                <a className="ant-dropdown-link" onClick={(e) => e.preventDefault()} data-cy="addRows">
+                    Add Row(s)
+                    {" "}
+                    <Icon type="down"/>
+                </a>
+            </Dropdown>
+        );
+        let footerProps = {};
+        if (addable) {
+            footerProps = {
+                footer: renderFooter,
+            };
+        }
+        return (
+            <div>
+                <DndProvider backend={HTML5Backend}>
+                    <StyledTable
+                        data-cy="view-one-table"
+                        components={this.components}
+                        rowClassName={() => "editable-row"}
+                        dataSource={dataSource}
+                        columns={columns}
+                        style={{marginTop: "10px"}}
+                        onRow={(_record, index) => ({
+                            index,
+                            mode,
+                            moveRow: this.checkOverrideValues,
+                            updateTable: this.props.updateTable,
+                        })}
+                        pagination={true}
+
+             pagination={{pageSize:100,onChange: (page)=>{this.setState({pageNumber:page})}}}
+
+                        {...footerProps}
+                    />
+                </DndProvider>
+            </div>
+        );
+    }
+}
+
+const mapStateToProps = (state: any) => ({
+    targets: state.map.targets,
+});
+
+const mapDispatchToProps = () => ({});
+export default connect<EditableTableStateProps, {}, EditableTableOwnProps>(mapStateToProps, mapDispatchToProps)(EditableTable);
