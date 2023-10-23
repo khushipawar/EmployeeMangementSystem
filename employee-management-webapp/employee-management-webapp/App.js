@@ -46,6 +46,7 @@ const StyledTable = styled(TypedTable)`
 `;
 
 interface EditableTableState {
+    count: number,
     dataSource: Array<MapDetailsRow>,
     selectedTargets: Array<number>,
     pageNumber:number,
@@ -128,6 +129,7 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
         this.state = {
             dataSource: [],
             selectedTargets: [],
+            count: 0,
             pageNumber:1,
             removeProcess: false
         };
@@ -147,7 +149,7 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
             }));
             // Arrange in sequence.
             tableRows.sort((a, b) => ((a.sequence > b.sequence) ? 1 : -1));
-            this.setState({dataSource: tableRows, selectedTargets});
+            this.setState({dataSource: tableRows, count: tableRows.length, selectedTargets});
             this.tableTracker = tableRows;
         }
     }
@@ -161,7 +163,7 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
                 targetValueKeys: this.convertTargetIDToKey(mapColumn.fileColumnProperties),
             }));
             tableRows.sort((a, b) => ((a.sequence > b.sequence) ? 1 : -1));
-            this.setState({dataSource: tableRows});
+            this.setState({dataSource: tableRows, count: tableRows.length});
             this.tableTracker = tableRows;
         }
         const {dataSource: dataSourceState} = this.state;
@@ -193,6 +195,7 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
     };
 
     handleDelete = (key: number, dataSource: any) => {
+    console.log("Key :"+ key);
         let comparisonId = null;
         let isLogicalExist = false;
         let logicalMessage = null;
@@ -229,19 +232,21 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
                 ...row,
                 sequence: index,
             }));
-            this.tableTracker = removed
-            this.props.updateTable(removed)
+            this.tableTracker = removed;
+            this.props.updateTable(removed);
         this.setState({dataSource: removed})
 
             }
+        }
+    console.log("DataSource: "+ JSON.stringify(dataSource));
+
     };
 
     handleAdd = ({key}: { key: string }) => {
-        const {dataSource} = this.state;
-        const count = dataSource.length>0?dataSource[dataSource.length - 1].key +1 :0;
+    console.log("KEY : "+ key);
+        const {count, dataSource} = this.state;
+//         const count = dataSource.length;
         console.log("Count : "+ count);
-        console.log("DataSource : "+ JSON.stringify(dataSource));
-        console.log("dataSource : " +dataSource.length);
         // Determine number to add.
         const toAdd = parseInt(key, 10);
         const newData: MapDetailsRow = {
@@ -258,6 +263,7 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
         };
 
         let newRows = new Array(toAdd).fill(newData);
+        console.log("new Rows : "+ newRows);
         // Set key and sequence based on position in array.
         newRows = newRows.map((row, index) => ({
             ...row,
@@ -268,9 +274,13 @@ class EditableTable extends React.Component<EditableTableProps, EditableTableSta
         const updatedRows = dataSource.concat(newRows);
         this.setState({
             dataSource: updatedRows,
-         });
+            count: updatedRows.length,
+
+        });
         this.tableTracker = updatedRows;
         this.props.updateTable(updatedRows);
+        console.log("DataSource : "+ JSON.stringify(dataSource));
+        console.log("Updataed Rows : "+ JSON.stringify(updatedRows))
     };
 
     handleSave = (row: MapDetailsRow) => {
