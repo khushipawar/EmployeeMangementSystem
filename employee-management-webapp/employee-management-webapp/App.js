@@ -1,241 +1,191 @@
-import React from 'react';
-import {
-    Form, Input, Icon, Modal, Select, Spin, Dropdown, Menu, Collapse, Checkbox, Col, Row, SubMenu
-} from "antd";
-const LogicalDerivations =(props)=>{
-const {index, item, handleChange, getDisabled, uniqueID, targetValue, fileColumnProperties,hardcoded,
-checkTargets , mappedTargets, validations, handleChangeSelect, remove, logicalDeriveBoolean,
-getDisabled, logicalDerIndex, logicalDerEnumOptions, logicalDerBoolean, getBlankCheck, inputContent, targetDetail, addDerConditions, editing, handleKey, logicalDerDate, isRestrict} = props;
+logicalDate && logicalIndex === index ?
+<Col span={7}>
+<Input
+    type="text"
+    style={{width: 155}}
+    placeholder="Enter Value"
+    onKeyUp={(e: any) => handleKey(e, index, uniqueID, "comparisonForLogical")}
+    onChange= {e => handleChange(e, index, uniqueID, "comparisonValue")}
+    value={item.comparisonValue}
+    disabled={getDisabled(item.comparisonValue, item.blank, hardcoded, 'comparisonValue') || !editing}
+    name={`logicalTransformation.[${index}].comparisonValue`}
+    />
+    {(validations?.[uniqueID]?.logicalTransformation?.[index]?.comparisonValue)
+        ?
+        <p style={{
+            color: 'red',
+            marginLeft: 15
+        }}>{validations?.[uniqueID]?.logicalTransformation?.[index]?.comparisonValue}</p> : null
+    }
+</Col>
+  handleChange = (e, index, uniqueID, key,conIndex) => {
+        const transformations = Object.assign({},this.state.transformations)
+        if (key == "value") {
+            transformations[uniqueID].valueTransformation[index].blank = false
+            transformations[uniqueID].valueTransformation[index].checked = false
+            transformations[uniqueID].valueTransformation[index].value = e.target.value;
+        }
+        if (key == "mappedValue") {
+            transformations[uniqueID].valueTransformation[index].blank = false
+            transformations[uniqueID].valueTransformation[index].checked = false
+            transformations[uniqueID].valueTransformation[index].mappedValue = e.target.value;
+        }
+        if (key == "thenValue") {
+            transformations[uniqueID].logicalDerivationRowsets[index].thenValue = e.target.value;
+        }
+        if (key == "mappedValueDate") {
+            transformations[uniqueID].valueTransformation[index].mappedValue = e.target.value;
+        }
+        if (key == "elseInd") {
+            transformations[uniqueID].elseValue = e.target.value;
+        }
+        if (key == "thenValue") {
+            transformations[uniqueID].logicalDerivationRowsets[index].thenValue = e.target.value;
+       }
+        if (key == "comparisonValue") {
+        let targetId
+        this.props.dataSource.forEach(data=>{
+        data.fileColumnProperties.forEach(fileProps=>{
+        if(fileProps.fileColumnTargetValueID=== transformations[uniqueID].logicalTransformation[index].comparisonFileColumnTargetValueID){
+        targetId = fileProps.targetValueID
+        }
+        })
+        })
+//             let targetId = transformations[uniqueID].logicalTransformation[index].targetValue.targetValueID
+            if (targetId != null) {
+                fetchTargetValidations(targetId)
+                    .then((targetDetail) => {
+                        if (targetDetail) {
+                            const enumOptions = this.parseEnumOptions(targetDetail);
+                            let isEnumhasNoNumericValues = false;
+                            if(enumOptions !== undefined && typeof enumOptions === 'object'){
+                            isEnumhasNoNumericValues = Object.values(enumOptions).every(option => isNaN(option) || Number.isInteger(Number (option)));
+                            }
+                            const isString = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.LENGTH) && [168, 169, 170, 171, 172, 228, 237].includes(targetDetail.targetValueID);
+                            const isBoolean = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.BOOLEAN);
+                            const isDate = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.DATE);
+                            this.setState({
+                                logicalEnumOptions: enumOptions,
+                                logicalEnum: isEnumhasNoNumericValues,
+                                logicalString: isString,
+                                logicalBoolean: isBoolean,
+                                logicalIndex: index,
+                                logicalDate: isDate
+                            });
+                        }
+                    });
+            }
 
-
-return (<>
-{item && item.logicalDerivationConditions && item.logicalDerivationConditions.map((conItems,keys)=>(<>
-    <Row style={{marginBottom: 10}}><Col span={8}>
-                                    <span>IF</span>
-
-                                    <Select
-                                        showSearch
-                                        allowClear
-                                        style={{width: 180}}
-                                        optionFilterProp="children"
-                                        disabled={getDisabled(conItems.comparisonFileColumnTargetValueID, conItems.blank, hardcoded, 'targetValueDer') || !editing}
-                                        name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].comparisonFileColumnTargetValueID`}
-                                        onChange={(event) => {handleChangeSelect(event, index, uniqueID, "targetValueDer", keys)}}
-                                        value={conItems.comparisonFileColumnTargetValueID? conItems.comparisonFileColumnTargetValueID: fileColumnProperties.logicalDerivation && this.props.fileColumnProperties.logicalDerivation[index].comparisonFileColumnTargetValueID}
-                                    >
-                                        {checkTargets(mappedTargets).map((target, i) =>
-
-                                            <Option
-                                                value={target.comparisonFileColumnTargetValueID}
-                                                key={i}
-                                            >
-                                               {/* {target.name}*/}
-                                                {target.columnName + "-" + target.name}
-                                            </Option>
-                                        )}
-                                    </Select>
-                                    {(validations && validations[uniqueID] &&
-                                        validations[uniqueID].logicalDerivationRowsets &&
-                                        validations[uniqueID].logicalDerivationRowsets[index] &&
-                                        validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions &&
-                                        validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys]) ?
-                                        <p style={{color: 'red', marginLeft: 15}}>
-                                        {validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys].comparisonFileColumnTargetValueID}</p> : null
+            transformations[uniqueID].logicalTransformation[index].blank = false
+            transformations[uniqueID].logicalTransformation[index].checked = false
+            transformations[uniqueID].logicalTransformation[index].comparisonValue = e.target.value;
+        }
+           if (key == "comparisonValueDer") {
+                let targetId
+                   this.props.dataSource.forEach(data=>{
+                   data.fileColumnProperties.forEach(fileProps=>{
+                   if(fileProps.fileColumnTargetValueID=== transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].comparisonFileColumnTargetValueID){
+                   targetId = fileProps.targetValueID
+                   }
+                   })
+                   })
+                    if (targetId != null) {
+                        fetchTargetValidations(targetId)
+                            .then((targetDetail) => {
+                                if (targetDetail) {
+                                    let isEnumhasNoNumericValues = false;
+                                    const enumOptions = this.parseEnumOptions(targetDetail);
+                                    if(enumOptions !== undefined && typeof enumOptions === 'object'){
+                                    isEnumhasNoNumericValues = Object.values(enumOptions).every(option => isNaN(option) || !Number.isInteger(Number (option)));
                                     }
-                                     </Col>
-                                     {isRestrict == true ?
-                                     <Col span = {4}>
-                                     <Select
-                                      allowClear
-                                      showSearch
-                                      dropdownMatchSelectWidth={false}
-                                      style={{width: 60}}
-                                      placeholder="Condition"
-                                      optionFilterProp="children"
-                                      onChange={(event) => handleChangeSelect(event, index, uniqueID, "logicOperatorDer",keys)}
-                                      disabled={getDisabled(conItems.logicalOperator, conItems.blank, hardcoded, 'logicOperatorDer') || !editing}
-                                      name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].logicalOperator`}
-                                      value={conItems.logicalOperator}>
-                                      <Option value="=" title="Equal to">{"="}</Option>
-                                      <Option value="<>" title="Not Equal to">{"<>"}</Option>
-                                      </Select>
-                                      {(validations && validations[uniqueID] &&
-                                      validations[uniqueID].logicalDerivationRowsets &&
-                                      validations[uniqueID].logicalDerivationRowsets[index] &&
-                                      validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions &&
-                                      validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys]) ?
-                                      <p style={{color: 'red', marginLeft: 15}}>
-                                      {validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys].comparisonFileColumnTargetValueID}</p> : null
-                                      }
-                                </Col>
-                                 :
-                                <Col span={4}>
-                                       <Select
-                                            allowClear
-                                            showSearch
-                                            dropdownMatchSelectWidth={false}
-                                            style={{width: 60}}
-                                            placeholder="Condition"
-                                            optionFilterProp="children"
-                                            onChange={(event) => handleChangeSelect(event, index, uniqueID, "logicOperatorDer",keys)}
-                                            disabled={getDisabled(conItems.logicalOperator, conItems.blank, hardcoded, 'logicOperatorDer') || !editing}
-                                            name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].logicalOperator`}
-                                            //                     onBlur={handleBlur}
-                                            value={conItems.logicalOperator}
-                                        >
-                                            <Option value="=" title="Equal to">{"="}</Option>
-                                            <Option value="<" title="Smaller than">{"<"}</Option>
-                                            <Option value=">" title="Greater than">{">"}</Option>
-                                            <Option value="<>" title="Not Equal to">{"<>"}</Option>
-                                        </Select>
-                                        {(validations && validations[uniqueID] &&
-                                         validations[uniqueID].logicalDerivationRowsets &&
-                                         validations[uniqueID].logicalDerivationRowsets[index] &&
-                                         validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions &&
-                                         validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys]) ?
-                                          <p style={{color: 'red', marginLeft: 15}}>
-                                          {validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys].logicalOperator}</p> : null
-                                       }
-                                    </Col>
-                                    }
-                                    {logicalDerEnumOptions && logicalDerEnumOptions.length > 0 && logicalDerIndex == keys
-                                        ?
-                                        <Col span={7}>
-                                            <Select
-                                                allowClear
-                                                showSearch
-                                                dropdownMatchSelectWidth={false}
-                                                style={{width: 155}}
-                                                placeholder="value"
-                                                optionFilterProp="children"
-                                                disabled={getDisabled(conItems.comparisonValue, conItems.blankInd, hardcoded, 'comparisonValueDer') || !editing}
-                                                name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].comparisonValue`}
-                                                onChange={e => handleChangeSelect(e, index, uniqueID, "comparisonValueDer", keys)}
-                                                onFocus={e => handleChangeSelect(e, index, uniqueID, "comparisonValueDer", keys)}
-                                                value={conItems.comparisonValue}
-                                            >
-                                                {logicalDerEnumOptions?.map((enumOption) => (<Option value={enumOption}>{enumOption}</Option>))}
-                                            </Select>
-                                        {(validations && validations[uniqueID] &&
-                                                                                validations[uniqueID].logicalDerivationRowsets &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index] &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys]) ?
-                                                                                <p style={{color: 'red', marginLeft: 15}}>
-                                                                                {validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys].comparisonValue}</p> : null
-                                       }
+                                    const isString = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.LENGTH) && [168, 169, 170, 171, 172, 228, 237].includes(targetDetail.targetValueID);
+                                    const isBoolean = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.BOOLEAN);
+                                    const isDate = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.DATE);
+                                    this.setState({
+                                        logicalDerEnumOptions: enumOptions,
+                                        logicalDerBoolean: isBoolean,
+                                        logicalDerString: isString,
+                                        logicalDerEnum: isEnumhasNoNumericValues,
+                                        logicalDerIndex: conIndex,
+                                        logicalDerDate: isDate
+                                    });
+                                }
+                            });
+                    }
+            transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].comparisonValue = e.target.value;
 
-                                        </Col> : logicalDerBoolean && logicalDerIndex == keys ?
-                                            <>
-                                                <Col span={7}>
-                                                    <Select
-                                                        allowClear
-                                                        showSearch
-                                                        dropdownMatchSelectWidth={false}
-                                                        style={{width: 155}}
-                                                        placeholder="value"
-                                                        optionFilterProp="children"
-                                                        disabled={getDisabled(conItems.comparisonValue, conItems.blankInd, hardcoded, 'comparisonValueDer') || !editing}
-                                                        name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].comparisonValue`}
-                                                        onChange={e => handleChangeSelect(e, index, uniqueID, "comparisonValueDer", keys)}
-                                                        onFocus={e => handleChangeSelect(e, index, uniqueID, "comparisonValueDer", keys)}
-                                                        value={conItems.comparisonValue}
-                                                    >
-                                                        <Option value="1">True</Option>
-                                                        <Option value="0">False</Option>
-                                                    </Select>
-                               {(validations && validations[uniqueID] &&
-                                                                                validations[uniqueID].logicalDerivationRowsets &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index] &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys]) ?
-                                                                                <p style={{color: 'red', marginLeft: 15}}>
-                                                                                {validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys].comparisonValue}</p> : null
-                                       }
-                                                </Col>
-                                            </>
-                                    : logicalDerDate && logicalDerIndex === keys ?
-                                            <Col span={7}>
-                                            <Input
-                                                type="text"
-                                                style={{width: 155}}
-                                                placeholder="Enter Value"
-                                                onKeyUp={(e: any) => handleKey(e, index, uniqueID, "comparisonForDer", keys)}
-                                                onChange= {e =>handleChange(e, index, uniqueID, "comparisonValueDer", keys)}
-                                                value={conItems.comparisonValue}
-                                                disabled={getDisabled(conItems.comparisonValue, conItems.blankInd, hardcoded, 'comparisonValueDer') || !editing}
-                                                name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].comparisonValue`}
-                                                />
-                                                {(validations?.[uniqueID]?.logicalDerivationRowsets?.[index]?.logicalDerivationConditions?.[keys]?.comparisonValue)
-                                                    ?
-                                                    <p style={{
-                                                        color: 'red',
-                                                        marginLeft: 15
-                                                    }}>{validations?.[uniqueID]?.logicalDerivationRowsets?.[index]?.logicalDerivationConditions?.[keys]?.comparisonValue}</p> : null
-                                                }
-                                            </Col>
-                                            :
-                                            <Col span={7}>
-                                                <Input
-                                                    type="text"
-                                                    name={`logicalDerivationRowsets.[${index}].logicalDerivationConditions.[${keys}].comparisonValue`}
-                                                    style={{width: 155}}
-                                                    placeholder="value"
-                                                    onChange={e => handleChange(e, index, uniqueID, "comparisonValueDer",keys)}
-                                                    onFocus={e => handleChange(e, index, uniqueID, "comparisonValueDer", keys)}
-                                                    value={(conItems.comparisonValue == 1 && logicalDeriveBoolean.includes(conItems.comparisonFileColumnTargetValueID)) ? "True" : (conItems.comparisonValue == null && conItems.comparisonValue == '') ? null : (conItems.comparisonValue == 0 && item.comparisonValue != '' && logicalDeriveBoolean.includes(conItems.comparisonFileColumnTargetValueID)) ? "False" : conItems.comparisonValue}
-                                                    allowClear
-                                                    disabled={getDisabled(conItems.comparisonValue, conItems.blankInd, hardcoded, 'comparisonValueDer') || !editing}
-                                                />
-                               {(validations && validations[uniqueID] &&
-                                                                                validations[uniqueID].logicalDerivationRowsets &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index] &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions &&
-                                                                                validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys]) ?
-                                                                                <p style={{color: 'red', marginLeft: 15}}>
-                                                                                {validations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[keys].comparisonValue}</p> : null
-                                       }
-                                            </Col>
-                                    }
+                }
+        if (key == "hardcoded") {
+            transformations[uniqueID].hardcodedValue = {...transformations[uniqueID].hardcodedValue, value: e.target.value}
+        }
+        if (key === "value_blank") {
+            transformations[uniqueID].valueTransformation[index].blank = e.target.checked;
+            transformations[uniqueID].valueTransformation[index].checked = e.target.checked;
+        }
+        if (key === "logical_blank") {
+            transformations[uniqueID].logicalTransformation[index].blank = e.target.checked;
+            transformations[uniqueID].logicalTransformation[index].checked = e.target.checked;
+        }
+        if (key === "derivationCon_blank") {
+                    transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].blankInd = e.target.checked;
+                    transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].checked = e.target.checked;
+        }
+        if (key === "derThen") {
+                            transformations[uniqueID].logicalDerivationRowsets[index].blankInd = e.target.checked;
+                            transformations[uniqueID].logicalDerivationRowsets[index].checked = e.target.checked;
+        }
+        if (key === "elseBlank") {
+                            transformations[uniqueID].blankInd = e.target.checked;
+                            transformations[uniqueID].checked = e.target.checked;
+        }
+        if (key == "hardcoded_blank") {
+            transformations[uniqueID].hardcodedValue = {...transformations[uniqueID].hardcodedValue, blank: e.target.checked, checked: e.target.checked}
+        }
 
+        this.setState({transformations: transformations})
+        this.setState({validations: this.getValidation(transformations)})
 
-                                    <Col span={5}>
-                                        {getBlankCheck(uniqueID, index, conItems, "derivationCon", keys)}
-                                       {editing && <>{keys === 0 && <Icon
-                                            className="dynamic-delete-button"
-                                            type="plus-circle-o"
-                                            style={{marginLeft: 5, marginTop: 10}}
-                                            onClick={() => addDerConditions(index, uniqueID)}
-                                            />}
-                                        <Icon
-                                            className="dynamic-delete-button"
-                                            type="minus-circle-o"
-                                            style={{marginLeft: 5, marginTop: 10}}
-                                            onClick={() => remove(index, uniqueID, keys===0? "logicalDer" : "derCondition",keys)}
-                                        />
-                                        </>}
-                                    </Col>
-                                </Row>
+    }
+  handleKey = (e, index, uniqueID, type, conIndex) => {
+   const transformations= {...this.state.transformations};
+        if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
+            let size = e.target.value.length;
+            if ((size == 2 && e.target.value < 13) || (size == 5 && Number(e.target.value.split('-')[1]) < 32)) {
+                e.target.value += '-';
+            }
+        }
+        if(type === "comparisonForLogical"){
+        transformations[uniqueID].logicalTransformation[index].comparisonValue=e.target.value;
+        }
+        else if(type === "valueTransformation"){
+        let valueArr;
+        if(!this.state.valueDateUniqueId?.includes(uniqueID)){
+        valueArr =[...this.state?.valueDateUniqueId, uniqueID]
+        this.setState({dateError: true, valueDateUniqueId:valueArr});
+        }
+        transformations[uniqueID].valueTransformation[index].mappedValue= e.target.value;
+        }
+        else if(type === "elseInd"){
+        if(!this.state.elseDateUniqueId?.includes(uniqueID)){
+        this.setState({elseDateUniqueId: [...this.state.elseDateUniqueId, uniqueID]})
+        }
+        transformations[uniqueID].elseValue= e.target.value;
+        this.setState({elseDateInd:true})
+        }
+        else if(type === "thenValue"){
+        if(!this.state.thenDateUniqueId?.includes(uniqueID)){
+           this.setState({thenDateUniqueId: [...this.state.thenDateUniqueId, uniqueID]})
+        }
+        transformations[uniqueID].logicalDerivationRowsets[index].thenValue= e.target.value;
+        this.setState({thenDateInd:true})
+        }
+        else if(type === "comparisonForDer"){
 
-</>))}
-<Row style={{marginBottom:10}}>
-<Col span ={10}>
-<span> THEN</span>
-
-{inputContent(targetDetail, uniqueID, index, item, 2)}
-{ validations?.[uniqueID]?.logicalDerivationRowsets?.[index] ?
-<p style={{color: 'red', marginLeft: 15}}>
-{validations[uniqueID].logicalDerivationRowsets[index].thenValue}</p> : null
-                                          }
-     </Col>
-     <Col span={4}>
-     {getBlankCheck(uniqueID, index, item, "derThen")}
-      </Col>
-    </Row>
-
-
-                     </>
-)
-
-}
-export default LogicalDerivations;
+        if(!this.state.thenDateUniqueId?.includes(uniqueID)){
+           this.setState({derDateUniqueId: [...this.state.derDateUniqueId, uniqueID]})
+        }
+        transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].comparisonValue = e.target.value;
+        this.setState({derDateIndex: index, conIndex: conIndex, isDerDate:true})
+        }
+this.setState({transformations:transformations})
+    }
