@@ -1,191 +1,251 @@
-logicalDate && logicalIndex === index ?
-<Col span={7}>
-<Input
-    type="text"
-    style={{width: 155}}
-    placeholder="Enter Value"
-    onKeyUp={(e: any) => handleKey(e, index, uniqueID, "comparisonForLogical")}
-    onChange= {e => handleChange(e, index, uniqueID, "comparisonValue")}
-    value={item.comparisonValue}
-    disabled={getDisabled(item.comparisonValue, item.blank, hardcoded, 'comparisonValue') || !editing}
-    name={`logicalTransformation.[${index}].comparisonValue`}
-    />
-    {(validations?.[uniqueID]?.logicalTransformation?.[index]?.comparisonValue)
-        ?
-        <p style={{
-            color: 'red',
-            marginLeft: 15
-        }}>{validations?.[uniqueID]?.logicalTransformation?.[index]?.comparisonValue}</p> : null
+package com.optum.cirrus.isl.member.edi.util.initialValidation;
+
+import com.optum.cirrus.commons.logging.ConditionalLogger;
+import com.optum.cirrus.isl.member.edi.data.v1.Validation.InitialDelimitedValidationResponseDTO;
+import com.optum.cirrus.isl.member.edi.data.v1.Validation.InitialValidationRequestDTO;
+import com.optum.cirrus.isl.member.edi.exception.ParserException;
+import com.optum.cirrus.isl.member.edi.util.blunders.initial.DelimiterBlunder;
+import com.optum.cirrus.isl.member.edi.util.blunders.initial.ElementMisalignedBlunder;
+import com.optum.cirrus.isl.member.edi.util.blunders.initial.EscapeCharBlunder;
+import com.optum.cirrus.isl.member.edi.util.blunders.initial.FileTypeBlunder;
+import com.optum.cirrus.isl.member.edi.util.blunders.initial.LineTerminatorBlunder;
+import com.optum.cirrus.isl.member.edi.util.blunders.initial.TextQualifierBlunder;
+import com.optum.cirrus.isl.member.edi.util.enums.ValidationSeverity;
+import com.univocity.parsers.common.TextParsingException;
+import com.univocity.parsers.csv.CsvFormat;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
+import org.apache.commons.io.FilenameUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Scanner;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+public class DelimitedInitialValidation implements Parser<InitialDelimitedValidationResponseDTO> {
+    private static final ConditionalLogger LOGGER = new ConditionalLogger(DelimitedInitialValidation.class);
+
+    // Stanford NLP parser
+
+
+    public DelimitedInitialValidation() {
+        // Initialize Stanford NLP.
+        Properties props = new Properties();
+        props.setProperty("annotators", "tokenize,ssplit,pos,lemma,ner");
+        props.setProperty("tokensregex.rules", "ner.rules");
+        props.setProperty("tokensregex.matchedExpressionsAnnotationKey",
+                "edu.stanford.nlp.examples.TokensRegexAnnotatorDemo$MyMatchedExpressionAnnotation");
     }
-</Col>
-  handleChange = (e, index, uniqueID, key,conIndex) => {
-        const transformations = Object.assign({},this.state.transformations)
-        if (key == "value") {
-            transformations[uniqueID].valueTransformation[index].blank = false
-            transformations[uniqueID].valueTransformation[index].checked = false
-            transformations[uniqueID].valueTransformation[index].value = e.target.value;
+
+    @Override
+    public List<String[]> parseFileAndValidate() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<String[]> parseHeaderFile() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public InitialDelimitedValidationResponseDTO runInitialValidation(InitialValidationRequestDTO initialValidationRequestDTO, MultipartFile file) {
+        CsvParserSettings settings = new CsvParserSettings();
+        settings.setMaxColumns(2048);
+        String filename = file.getOriginalFilename();
+        InitialDelimitedValidationResponseDTO response = new InitialDelimitedValidationResponseDTO();
+
+        final String delimitedExtension = "csv";
+
+        // Verify file extension.
+        String fileExtenstion = FilenameUtils.getExtension(filename);
+        if (!fileExtenstion.equals(delimitedExtension)) {
+            response.setFileTypeBlunder(new FileTypeBlunder(delimitedExtension, fileExtenstion, ValidationSeverity.WARN));
+            LOGGER.warn("WARNING: FILE EXTENSION IS INCORRECT");
         }
-        if (key == "mappedValue") {
-            transformations[uniqueID].valueTransformation[index].blank = false
-            transformations[uniqueID].valueTransformation[index].checked = false
-            transformations[uniqueID].valueTransformation[index].mappedValue = e.target.value;
-        }
-        if (key == "thenValue") {
-            transformations[uniqueID].logicalDerivationRowsets[index].thenValue = e.target.value;
-        }
-        if (key == "mappedValueDate") {
-            transformations[uniqueID].valueTransformation[index].mappedValue = e.target.value;
-        }
-        if (key == "elseInd") {
-            transformations[uniqueID].elseValue = e.target.value;
-        }
-        if (key == "thenValue") {
-            transformations[uniqueID].logicalDerivationRowsets[index].thenValue = e.target.value;
-       }
-        if (key == "comparisonValue") {
-        let targetId
-        this.props.dataSource.forEach(data=>{
-        data.fileColumnProperties.forEach(fileProps=>{
-        if(fileProps.fileColumnTargetValueID=== transformations[uniqueID].logicalTransformation[index].comparisonFileColumnTargetValueID){
-        targetId = fileProps.targetValueID
-        }
-        })
-        })
-//             let targetId = transformations[uniqueID].logicalTransformation[index].targetValue.targetValueID
-            if (targetId != null) {
-                fetchTargetValidations(targetId)
-                    .then((targetDetail) => {
-                        if (targetDetail) {
-                            const enumOptions = this.parseEnumOptions(targetDetail);
-                            let isEnumhasNoNumericValues = false;
-                            if(enumOptions !== undefined && typeof enumOptions === 'object'){
-                            isEnumhasNoNumericValues = Object.values(enumOptions).every(option => isNaN(option) || Number.isInteger(Number (option)));
-                            }
-                            const isString = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.LENGTH) && [168, 169, 170, 171, 172, 228, 237].includes(targetDetail.targetValueID);
-                            const isBoolean = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.BOOLEAN);
-                            const isDate = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.DATE);
-                            this.setState({
-                                logicalEnumOptions: enumOptions,
-                                logicalEnum: isEnumhasNoNumericValues,
-                                logicalString: isString,
-                                logicalBoolean: isBoolean,
-                                logicalIndex: index,
-                                logicalDate: isDate
-                            });
-                        }
-                    });
+
+        try (InputStream fileInputStream = file.getInputStream()){
+            // Perform auto detected parse.
+            Reader autoDetectedReader = new InputStreamReader(fileInputStream, StandardCharsets.UTF_8);
+
+            settings.detectFormatAutomatically();
+            settings.setMaxColumns(2048);
+            CsvParser parser = new CsvParser(settings);
+
+            List<String[]> autoRows;
+            autoRows = parser.parseAll(autoDetectedReader);
+            CsvFormat detectedFormat = parser.getDetectedFormat();
+            // Set to user specifications with null checks in place.
+            CsvFormat userFormat = new CsvFormat();
+            userFormat.setDelimiter(initialValidationRequestDTO.getColDelimiter());
+            String lineSeparator = initialValidationRequestDTO.getLineSeparator();
+            if (lineSeparator != null) {
+                userFormat.setLineSeparator(lineSeparator);
+            } else {
+                userFormat.setLineSeparator("\n");
+            }
+            Character quote = initialValidationRequestDTO.getTextQualifier();
+            if (quote != null) {
+                userFormat.setQuote(quote);
+            }
+            Character quoteEscape = initialValidationRequestDTO.getEscapeChar();
+            if (quoteEscape != null) {
+                userFormat.setQuoteEscape(quoteEscape);
             }
 
-            transformations[uniqueID].logicalTransformation[index].blank = false
-            transformations[uniqueID].logicalTransformation[index].checked = false
-            transformations[uniqueID].logicalTransformation[index].comparisonValue = e.target.value;
-        }
-           if (key == "comparisonValueDer") {
-                let targetId
-                   this.props.dataSource.forEach(data=>{
-                   data.fileColumnProperties.forEach(fileProps=>{
-                   if(fileProps.fileColumnTargetValueID=== transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].comparisonFileColumnTargetValueID){
-                   targetId = fileProps.targetValueID
-                   }
-                   })
-                   })
-                    if (targetId != null) {
-                        fetchTargetValidations(targetId)
-                            .then((targetDetail) => {
-                                if (targetDetail) {
-                                    let isEnumhasNoNumericValues = false;
-                                    const enumOptions = this.parseEnumOptions(targetDetail);
-                                    if(enumOptions !== undefined && typeof enumOptions === 'object'){
-                                    isEnumhasNoNumericValues = Object.values(enumOptions).every(option => isNaN(option) || !Number.isInteger(Number (option)));
-                                    }
-                                    const isString = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.LENGTH) && [168, 169, 170, 171, 172, 228, 237].includes(targetDetail.targetValueID);
-                                    const isBoolean = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.BOOLEAN);
-                                    const isDate = targetDetail.validations.some((validation) => validation.errorType === ValidationErrorType.DATE);
-                                    this.setState({
-                                        logicalDerEnumOptions: enumOptions,
-                                        logicalDerBoolean: isBoolean,
-                                        logicalDerString: isString,
-                                        logicalDerEnum: isEnumhasNoNumericValues,
-                                        logicalDerIndex: conIndex,
-                                        logicalDerDate: isDate
-                                    });
-                                }
-                            });
-                    }
-            transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].comparisonValue = e.target.value;
-
+            // Compare detected format to format supplied by the user.
+            boolean probableFound = compareFormats(userFormat, detectedFormat, file, response);
+            // If probable is found parsing is done.
+            if (probableFound) {
+                if (!verifyRowLengths(autoRows)) {
+                    response.setElementMisalignedBlunder(new ElementMisalignedBlunder(ValidationSeverity.WARN));
                 }
-        if (key == "hardcoded") {
-            transformations[uniqueID].hardcodedValue = {...transformations[uniqueID].hardcodedValue, value: e.target.value}
-        }
-        if (key === "value_blank") {
-            transformations[uniqueID].valueTransformation[index].blank = e.target.checked;
-            transformations[uniqueID].valueTransformation[index].checked = e.target.checked;
-        }
-        if (key === "logical_blank") {
-            transformations[uniqueID].logicalTransformation[index].blank = e.target.checked;
-            transformations[uniqueID].logicalTransformation[index].checked = e.target.checked;
-        }
-        if (key === "derivationCon_blank") {
-                    transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].blankInd = e.target.checked;
-                    transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].checked = e.target.checked;
-        }
-        if (key === "derThen") {
-                            transformations[uniqueID].logicalDerivationRowsets[index].blankInd = e.target.checked;
-                            transformations[uniqueID].logicalDerivationRowsets[index].checked = e.target.checked;
-        }
-        if (key === "elseBlank") {
-                            transformations[uniqueID].blankInd = e.target.checked;
-                            transformations[uniqueID].checked = e.target.checked;
-        }
-        if (key == "hardcoded_blank") {
-            transformations[uniqueID].hardcodedValue = {...transformations[uniqueID].hardcodedValue, blank: e.target.checked, checked: e.target.checked}
-        }
-
-        this.setState({transformations: transformations})
-        this.setState({validations: this.getValidation(transformations)})
-
-    }
-  handleKey = (e, index, uniqueID, type, conIndex) => {
-   const transformations= {...this.state.transformations};
-        if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
-            let size = e.target.value.length;
-            if ((size == 2 && e.target.value < 13) || (size == 5 && Number(e.target.value.split('-')[1]) < 32)) {
-                e.target.value += '-';
+                return response;
             }
-        }
-        if(type === "comparisonForLogical"){
-        transformations[uniqueID].logicalTransformation[index].comparisonValue=e.target.value;
-        }
-        else if(type === "valueTransformation"){
-        let valueArr;
-        if(!this.state.valueDateUniqueId?.includes(uniqueID)){
-        valueArr =[...this.state?.valueDateUniqueId, uniqueID]
-        this.setState({dateError: true, valueDateUniqueId:valueArr});
-        }
-        transformations[uniqueID].valueTransformation[index].mappedValue= e.target.value;
-        }
-        else if(type === "elseInd"){
-        if(!this.state.elseDateUniqueId?.includes(uniqueID)){
-        this.setState({elseDateUniqueId: [...this.state.elseDateUniqueId, uniqueID]})
-        }
-        transformations[uniqueID].elseValue= e.target.value;
-        this.setState({elseDateInd:true})
-        }
-        else if(type === "thenValue"){
-        if(!this.state.thenDateUniqueId?.includes(uniqueID)){
-           this.setState({thenDateUniqueId: [...this.state.thenDateUniqueId, uniqueID]})
-        }
-        transformations[uniqueID].logicalDerivationRowsets[index].thenValue= e.target.value;
-        this.setState({thenDateInd:true})
-        }
-        else if(type === "comparisonForDer"){
 
-        if(!this.state.thenDateUniqueId?.includes(uniqueID)){
-           this.setState({derDateUniqueId: [...this.state.derDateUniqueId, uniqueID]})
+            // Continue with user settings if auto detect fails.
+            try (InputStream userSettingsStream = file.getInputStream()) {
+                Reader inputReader = new InputStreamReader(userSettingsStream, StandardCharsets.UTF_8);
+                settings.setFormat(userFormat);
+                settings.setMaxColumns(2048);
+                parser = new CsvParser(settings);
+                List<String[]> userRows = parser.parseAll(inputReader);
+
+                if (!verifyRowLengths(userRows)) {
+                    response.setElementMisalignedBlunder(new ElementMisalignedBlunder(ValidationSeverity.WARN));
+                }
+            }
+            return response;
+        } catch (IOException e) {
+            throw new ParserException(filename);
         }
-        transformations[uniqueID].logicalDerivationRowsets[index].logicalDerivationConditions[conIndex].comparisonValue = e.target.value;
-        this.setState({derDateIndex: index, conIndex: conIndex, isDerDate:true})
-        }
-this.setState({transformations:transformations})
+        catch (TextParsingException e) {
+               LOGGER.info("CMT:FAILURE TO AUTODETECT FILE FORMAT. DEFAULTING TO USER SETTINGS.");
+               return response;
+            }
     }
+
+    private boolean verifyRowLengths(List<String[]> parsedRows) {
+        List<Integer> rowElements = parsedRows.stream().map(line -> line.length).collect(Collectors.toList());
+        Set<Integer> uniqueRowCounts = new HashSet<>(rowElements);
+        if (uniqueRowCounts.size() > 1) {
+            LOGGER.warn("WARNING: ROWS ARE NOT MATCHING!");
+            LOGGER.warn("FOUND ROW LENGTHS OF:" + Arrays.toString(uniqueRowCounts.toArray()));
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Takes a newline character and converts to a user friendly form before returning to the app.
+     *
+     * @param newline the newline character
+     * @return a user friendly newline
+     */
+    private String convertNewline(String newline) {
+        switch (newline) {
+            case "\n":
+                return "Newline";
+            case "\t":
+                return "Tab";
+            case "|":
+                return "Pipe";
+            case " ":
+                return "Space";
+            default:
+                return "Unknown";
+        }
+    }
+
+    /**
+     * Compares the user supplied format to the auto detected format. If differences are found, errors are thrown.
+     *
+     * @param userFormat     the format supplied by the user on the app
+     * @param detectedFormat the format auto detected by univocity
+     * @param file           the user's file
+     * @param response       the response object to update with errors
+     * @return whether a probable format was found.
+     */
+    private boolean compareFormats(CsvFormat userFormat, CsvFormat detectedFormat, MultipartFile file, InitialDelimitedValidationResponseDTO response) {
+        // If the detected delimiter is not space, we have found a highly probable format.
+        if (detectedFormat.getDelimiter() != ' ') {
+            boolean delimiterMatch = userFormat.getDelimiter() == detectedFormat.getDelimiter();
+            boolean lineSepMatch = userFormat.getNormalizedNewline() == detectedFormat.getNormalizedNewline();
+
+
+            try (InputStream fileInputStream = file.getInputStream()){
+                // Determine if the quote char and escape char are present in the file.
+                Scanner scanner = new Scanner(fileInputStream);
+                boolean quoteFound = false;
+                boolean escapeFound = false;
+                while (scanner.hasNextLine()) {
+                    String line = scanner.nextLine();
+                    if (line.contains(String.valueOf(detectedFormat.getQuote()))) {
+                        quoteFound = true;
+                    }
+                    if (line.contains(String.valueOf(detectedFormat.getQuoteEscape()))) {
+                        escapeFound = true;
+                    }
+                }
+                delimiterMatch1( response,  delimiterMatch, lineSepMatch, userFormat, detectedFormat,quoteFound,escapeFound);
+            } catch (IOException e) {
+                throw new ParserException(file.getOriginalFilename());
+            }
+            return true;
+        }
+        return false;
+    }
+  private void delimiterMatch1(InitialDelimitedValidationResponseDTO response, boolean delimiterMatch, boolean lineSepMatch,CsvFormat userFormat, CsvFormat detectedFormat,  boolean quoteFound,boolean escapeFound ){
+      if (!delimiterMatch) {
+          response.setDelimiterBlunder(
+                  new DelimiterBlunder(userFormat.getDelimiterString(),
+                          detectedFormat.getDelimiterString(),
+                          ValidationSeverity.ERROR));
+      }
+      if (!lineSepMatch) {
+          response.setLineTerminatorBlunder(
+                  new LineTerminatorBlunder(convertNewline(userFormat.getLineSeparatorString()),
+                          convertNewline(detectedFormat.getLineSeparatorString()),
+                          ValidationSeverity.ERROR));
+      }
+      boolean quoteMatch = userFormat.getQuote() == detectedFormat.getQuote();
+      if (quoteFound && !quoteMatch) {
+          response.setTextQualifierBlunder(
+                  new TextQualifierBlunder(String.valueOf(userFormat.getQuote()),
+                          String.valueOf(detectedFormat.getQuote()),
+                          ValidationSeverity.ERROR));
+      }
+
+      boolean escapeCharMatch = userFormat.getQuoteEscape() == detectedFormat.getQuoteEscape();
+      if (escapeFound && !escapeCharMatch) {
+          response.setEscapeCharBlunder(
+                  new EscapeCharBlunder(String.valueOf(userFormat.getQuoteEscape()),
+                          String.valueOf(detectedFormat.getQuoteEscape()),
+                          ValidationSeverity.ERROR));
+      }
+  }
+    /**
+     * Use Stanford NER to determine probable column descriptors.
+     *
+     */
+
+    @Override
+    public void createSetting() {
+        // required
+    }
+
+    @Override
+    public Reader readFile(FileInputStream fileInputStream) {
+        return null;
+    }
+}
